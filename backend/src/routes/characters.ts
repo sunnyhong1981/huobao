@@ -57,15 +57,22 @@ function characterImagePrompt(char: typeof schema.characters.$inferSelect, style
 app.put('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
+  const [existing] = await db.select().from(schema.characters).where(eq(schema.characters.id, id))
+  if (!existing) return badRequest(c, '角色不存在')
   const updates: Record<string, any> = { updatedAt: now() }
   for (const key of ['name', 'role', 'description', 'appearance', 'styling', 'imageUrl', 'localPath']) {
     const snakeKey = key.replace(/[A-Z]/g, m => '_' + m.toLowerCase())
     if (snakeKey in body) updates[key] = body[snakeKey]
     else if (key in body) updates[key] = body[key]
   }
-  // 手动编辑最终提示词时以传入值为准；未传入则保留原值（修改信息时不再自动置空）
+  // 手动编辑最终提示词时以传入值为准。样貌或妆造变化会让旧提示词失效，
+  // 让下一次生成基于最新设定重新生成它。
   if (body.final_prompt !== undefined) updates.finalPrompt = body.final_prompt || null
   else if (body.finalPrompt !== undefined) updates.finalPrompt = body.finalPrompt || null
+  else if (
+    (updates.appearance !== undefined && updates.appearance !== existing.appearance) ||
+    (updates.styling !== undefined && updates.styling !== existing.styling)
+  ) updates.finalPrompt = null
   await db.update(schema.characters).set(updates).where(eq(schema.characters.id, id))
   return success(c)
 })
