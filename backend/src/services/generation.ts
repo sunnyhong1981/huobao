@@ -22,6 +22,10 @@ const POLL_PROFILES: Record<TaskType, { attempts: number; intervalMs: number; ma
   video: { attempts: 300, intervalMs: 10_000, maxDurationMs: null },
 }
 
+// 部分图片模型的同步生成耗时较长；请求上限高于网关的短连接阈值，
+// 由上游明确返回或网络断开时立即失败。
+const GENERATION_REQUEST_TIMEOUT_MS = 900_000
+
 interface GenerateImageParams {
   storyboardId?: number
   dramaId?: number
@@ -268,7 +272,7 @@ async function processTask(id: number, config: AIConfig) {
       method,
       headers,
       body: isMultipart ? (body as FormData) : JSON.stringify(body),
-      signal: AbortSignal.timeout(600_000),
+      signal: AbortSignal.timeout(GENERATION_REQUEST_TIMEOUT_MS),
     })
 
     if (!resp.ok) throw new Error(`API error ${resp.status}: ${await resp.text()}`)
