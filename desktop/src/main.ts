@@ -191,7 +191,7 @@ function startBackend(): void {
     backend = null
     // 迁移/重启期间的退出是预期行为，由调用方接管
     if (!quitting && !backendRestarting) {
-      dialog.showErrorBox('火宝短剧', `后台服务异常退出（code ${code}），应用即将关闭。请重新启动。`)
+      dialog.showErrorBox('Qunl 短剧', `后台服务异常退出（code ${code}），应用即将关闭。请重新启动。`)
       app.quit()
     }
   })
@@ -203,7 +203,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
-    title: '火宝短剧',
+    title: 'Qunl 短剧',
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -262,7 +262,7 @@ async function bootstrap() {
     await createWindow()
   } catch (err) {
     console.error('[main] 启动失败:', err)
-    dialog.showErrorBox('火宝短剧', `启动失败：\n${(err as Error)?.message || err}`)
+    dialog.showErrorBox('Qunl 短剧', `启动失败：\n${(err as Error)?.message || err}`)
     app.quit()
   }
 }

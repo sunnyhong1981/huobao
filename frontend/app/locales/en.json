@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "Huobao Shorts",
+    "title": "Qunl Drama",
     "updateAvailable": "New version v{version} is available. Upgrade in Settings → About."
   },
   "common": {
@@ -268,11 +268,11 @@
     "ai": {
       "title": "AI Service Configs",
       "desc": "Start with a recommended template, then fine-tune per service type. The workbench locks the chosen image and video capabilities when creating an episode.",
-      "quickTitle": "Huobao Quick Config",
+      "quickTitle": "Qunl Quick Config",
       "recommended": "Recommended",
-      "quickDesc": "Enter a Huobao API Key to write three recommended configs (text, image, video) at once.",
+      "quickDesc": "Enter a Qunl API Key to write three recommended configs (text, image, video) at once.",
       "getKey": "Get a key at api.firemux.com",
-      "applyQuick": "Apply Huobao Config",
+      "applyQuick": "Apply Qunl Config",
       "manualTitle": "Manual Templates",
       "manualDesc": "Pick a service type, then fill the recommended `provider / base URL / model` from a template.",
       "activeCount": "{n} active",
@@ -282,8 +282,8 @@
       "setDefault": "Set as default model for this type",
       "noBaseUrl": "Base URL not set",
       "test": "Test",
-      "apiKeyRequired": "Please enter a Huobao API Key",
-      "quickApplied": "Huobao quick config written",
+      "apiKeyRequired": "Please enter a Qunl API Key",
+      "quickApplied": "Qunl quick config written",
       "defaultModelSwitched": "Default {type} model switched to {model}",
       "meta": {
         "text": "Text capabilities: script rewriting, asset extraction, storyboard breaking",
@@ -387,7 +387,7 @@
       "addTitle": "Add {type} Service",
       "sub": "Pick a template first — a sensible `Base URL` and default models will be filled in automatically.",
       "name": "Config name",
-      "namePlaceholder": "e.g. Huobao default image service",
+      "namePlaceholder": "e.g. Qunl default image service",
       "provider": "Provider",
       "providerPlaceholder": "Select a provider",
       "priority": "Priority",
@@ -875,7 +875,7 @@
     "helpTitle": "Guide",
     "index": {
       "welcome": {
-        "title": "👋 Welcome to Huobao Drama",
+        "title": "👋 Welcome to Qunl Drama",
         "desc": "Novel → script → assets → storyboard → video → final cut, all in one place. Configure AI services first, then create your first project."
       },
       "create": {
@@ -884,13 +884,13 @@
       },
       "settings": {
         "title": "Step 1 · Configure AI services",
-        "desc": "Every AI feature needs this first. Open Settings and paste a Huobao API Key to set up text/image/video in one click."
+        "desc": "Every AI feature needs this first. Open Settings and paste a Qunl API Key to set up text/image/video in one click."
       }
     },
     "settings": {
       "quick": {
         "title": "Fastest setup: Quick Setup",
-        "desc": "Paste a Huobao API Key to write the three recommended configs (text/image/video) at once, with connectivity testing."
+        "desc": "Paste a Qunl API Key to write the three recommended configs (text/image/video) at once, with connectivity testing."
       },
       "nav": {
         "title": "Everything lives here",

@@ -5,12 +5,12 @@
       <div class="header-left">
         <button class="brand" @click="navigateTo('/')">
           <div class="brand-mark">
-            <img v-if="showBrandImage" :src="brandLogo" alt="火宝短剧" class="brand-logo" @error="showBrandImage = false" />
-            <span v-else class="brand-fallback">火</span>
+            <img v-if="showBrandImage" :src="brandLogo" alt="Qunl 短剧" class="brand-logo" @error="showBrandImage = false" />
+            <span v-else class="brand-fallback">Q</span>
           </div>
           <div class="brand-text">
-            <span class="brand-name">火宝短剧</span>
-            <span class="brand-sub">Huobao Shorts</span>
+            <span class="brand-name">Qunl 短剧</span>
+            <span class="brand-sub">Qunl Drama</span>
           </div>
         </button>
       </div>
@@ -29,7 +29,7 @@
       <div class="header-right">
         <a
           class="github-link"
-          href="https://github.com/chatfire-AI/huobao-drama"
+          href="https://github.com/sunnyhong1981/huobao"
           target="_blank"
           rel="noopener"
           aria-label="GitHub"
