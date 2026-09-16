@@ -17,8 +17,12 @@ import type {
 } from './types'
 import { joinProviderUrl } from './url'
 
-/** 仅支持 Seedance 2.0+ 系列（前缀匹配，兼容未来 2.0.x 变体） */
-const SEEDANCE2_MODEL_PREFIX = 'doubao-seedance-2-0'
+/**
+ * Seedance 2.0+ 系列模型。官方端点使用 doubao-*，部分兼容网关使用
+ * dreamina-*；两者均按原模型名透传给上游。
+ */
+const SEEDANCE2_MODEL_PREFIXES = ['doubao-seedance-2-0', 'dreamina-seedance-2-0']
+const DREAMINA_MODEL_PREFIX = 'dreamina-seedance-2-0'
 const DEFAULT_MODEL = 'doubao-seedance-2-0-mini-260615'
 
 /** 多模态参考素材上限：图片 9、视频 3、音频 3 */
@@ -39,8 +43,8 @@ export class VolcEngineVideoAdapter implements VideoProviderAdapter {
 
   buildGenerateRequest(config: AIConfig, record: VideoGenerationRecord): ProviderRequest {
     const model = record.model || config.model || DEFAULT_MODEL
-    if (!model.startsWith(SEEDANCE2_MODEL_PREFIX)) {
-      throw new Error(`仅支持 Seedance 2.0 系列模型（${SEEDANCE2_MODEL_PREFIX}-*），当前: ${model}`)
+    if (!SEEDANCE2_MODEL_PREFIXES.some(prefix => model.startsWith(prefix))) {
+      throw new Error(`仅支持 Seedance 2.0 系列模型（${SEEDANCE2_MODEL_PREFIXES.map(prefix => `${prefix}-*`).join(' / ')}），当前: ${model}`)
     }
 
     const prompt = (record.prompt || '').trim()
@@ -70,14 +74,41 @@ export class VolcEngineVideoAdapter implements VideoProviderAdapter {
       content.push({ type: 'audio_url', audio_url: { url }, role: 'reference_audio' })
     }
 
+    const duration = this.normalizeDuration(record.duration)
+    const resolution = record.resolution === '480p' ? '480p' : '720p'
+    const ratio = record.aspectRatio || 'adaptive'
+    const usesDreaminaGateway = model.startsWith(DREAMINA_MODEL_PREFIX)
+
+    // New API-compatible gateways expose Dreamina through /v1/video/generations
+    // rather than Volcengine's native /api/v3 endpoint. Keep their documented
+    // prompt/images/content request shapes intact.
+    if (usesDreaminaGateway) {
+      const body: any = { model, resolution, ratio, duration }
+      if (refVideos.length || refAudios.length) {
+        body.content = content
+      } else {
+        if (prompt) body.prompt = prompt
+        if (refImages.length) body.images = refImages
+      }
+      return {
+        url: joinProviderUrl(config.baseUrl, '/v1', '/video/generations'),
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${config.apiKey}`,
+        },
+        body,
+      }
+    }
+
     const body: any = {
       model,
       content,
       generate_audio: record.generateAudio !== 0 && record.generateAudio !== false,
-      ratio: record.aspectRatio || 'adaptive',
-      duration: this.normalizeDuration(record.duration),
+      ratio,
+      duration,
       // Seedance 2.0 仅 480p/720p 两档，1080p 收敛到 720p
-      resolution: record.resolution === '480p' ? '480p' : '720p',
+      resolution,
       watermark: false,
     }
 
@@ -105,6 +136,17 @@ export class VolcEngineVideoAdapter implements VideoProviderAdapter {
   }
 
   buildPollRequest(config: AIConfig, taskId: string): ProviderRequest {
+    const model = config.model || DEFAULT_MODEL
+    if (model.startsWith(DREAMINA_MODEL_PREFIX)) {
+      return {
+        url: joinProviderUrl(config.baseUrl, '/v1', `/video/generations/${encodeURIComponent(taskId)}`),
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${config.apiKey}`,
+        },
+        body: undefined,
+      }
+    }
     return {
       url: joinProviderUrl(config.baseUrl, '/api/v3', `/contents/generations/tasks/${taskId}`),
       method: 'GET',

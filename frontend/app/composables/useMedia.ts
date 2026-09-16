@@ -7,11 +7,20 @@
  * 存量文件可用 `npm run backfill-artwork`（backend）补齐。
  */
 
+/** 将本地媒体路径固定在当前 Nuxt 部署前缀下。 */
+export function mediaUrl(url: string): string {
+  if (!url || !/^\/?static\//.test(url)) return url
+  const baseURL = useRuntimeConfig().app.baseURL || '/'
+  const prefix = baseURL === '/' ? '' : baseURL.replace(/\/+$/, '')
+  return `${prefix}/${url.replace(/^\/+/, '')}`
+}
+
 /** 图片地址 → 缩略图地址；非 /static 图片（远程 URL 等）原样返回 */
 export function thumbOf(url: string): string {
-  if (!url || !url.includes('/static/')) return url
-  if (!/\.(png|jpe?g|webp|gif)$/i.test(url)) return url
-  return url.replace(/\.[^./]+$/, '_thumb.webp')
+  const resolved = mediaUrl(url)
+  if (!resolved || !resolved.includes('/static/')) return resolved
+  if (!/\.(png|jpe?g|webp|gif)$/i.test(resolved)) return resolved
+  return resolved.replace(/\.[^./]+$/, '_thumb.webp')
 }
 
 /** 缩略图加载失败（老数据未回填）时回退原图 */
@@ -24,7 +33,8 @@ export function thumbFallback(e: Event, orig: string) {
 
 /** 视频地址 → 海报帧地址；无法推导（远程 URL 等）时返回空串，不设置 poster */
 export function posterOf(url: string): string {
-  if (!url || !url.includes('/static/')) return ''
-  if (!/\.(mp4|webm|mov)$/i.test(url)) return ''
-  return url.replace(/\.[^./]+$/, '_poster.jpg')
+  const resolved = mediaUrl(url)
+  if (!resolved || !resolved.includes('/static/')) return ''
+  if (!/\.(mp4|webm|mov)$/i.test(resolved)) return ''
+  return resolved.replace(/\.[^./]+$/, '_poster.jpg')
 }

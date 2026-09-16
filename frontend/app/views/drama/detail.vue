@@ -707,7 +707,7 @@ function matHasImage(m) { return !!matImage(m) }
 function assetSrc(m) {
   const raw = matImage(m)
   if (!raw) return ''
-  return /^https?:\/\//i.test(raw) || raw.startsWith('/') ? raw : `/${raw}`
+  return /^https?:\/\//i.test(raw) ? raw : mediaUrl(raw)
 }
 function matCreatedAt(m) { return m.created_at || m.updated_at || m.createdAt || m.updatedAt }
 function matDesc(m) {

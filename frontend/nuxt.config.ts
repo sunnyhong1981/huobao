@@ -1,5 +1,7 @@
 import { fileURLToPath } from 'node:url'
 
+const appBaseURL = process.env.NUXT_APP_BASE_URL || '/'
+
 export default defineNuxtConfig({
   srcDir: 'app/',
   ssr: false,
@@ -26,15 +28,18 @@ export default defineNuxtConfig({
     },
   },
   app: {
+    // Set NUXT_APP_BASE_URL when the app is published beneath a reverse-proxy
+    // path (for example /huobao/). The desktop and root deployments stay at /.
+    baseURL: appBaseURL,
     head: {
       title: '火宝短剧',
       meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1' }],
       link: [
-        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon.png' },
-        { rel: 'shortcut icon', type: 'image/png', href: '/favicon.png' },
-        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
-        { rel: 'icon', type: 'image/png', sizes: '192x192', href: '/icon-192.png' },
-        { rel: 'icon', type: 'image/png', sizes: '512x512', href: '/icon-512.png' },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: `${appBaseURL}favicon.png` },
+        { rel: 'shortcut icon', type: 'image/png', href: `${appBaseURL}favicon.png` },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: `${appBaseURL}apple-touch-icon.png` },
+        { rel: 'icon', type: 'image/png', sizes: '192x192', href: `${appBaseURL}icon-192.png` },
+        { rel: 'icon', type: 'image/png', sizes: '512x512', href: `${appBaseURL}icon-512.png` },
       ],
     },
   },

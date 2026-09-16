@@ -3,20 +3,29 @@
 # ===== 前端构建：Nuxt generate 产出静态站点 =====
 FROM node:20-bookworm-slim AS frontend-build
 WORKDIR /build/frontend
+ARG NUXT_APP_BASE_URL=/
 COPY frontend/package.json frontend/package-lock.json ./
 # lockfile 的 resolved 可能指向带鉴权的私有 registry（开发者本机 .npmrc），镜像内会 401。
 # 构建期删除 resolved 字段（integrity 校验不受影响），让 npm 统一走公共 registry
 RUN node -e "const fs=require('fs');const l=JSON.parse(fs.readFileSync('package-lock.json'));for(const p of Object.values(l.packages||{}))delete p.resolved;fs.writeFileSync('package-lock.json',JSON.stringify(l,null,2))" \
   && npm ci --no-audit --no-fund --registry=https://registry.npmjs.org
 COPY frontend/ ./
-RUN npm run generate
+RUN NUXT_APP_BASE_URL=${NUXT_APP_BASE_URL} npm run generate
 
 # ===== 后端构建：安装依赖（含原生模块编译） =====
 FROM node:20-bookworm AS backend-build
 WORKDIR /build/backend
+ARG SKIP_FFMPEG_STATIC_DOWNLOAD=false
 COPY backend/package.json backend/package-lock.json ./
+# Some constrained deployment networks cannot reach ffmpeg-static's release
+# binary. Keep normal images unchanged; those deployments can opt in to skip it.
 RUN node -e "const fs=require('fs');const l=JSON.parse(fs.readFileSync('package-lock.json'));for(const p of Object.values(l.packages||{}))delete p.resolved;fs.writeFileSync('package-lock.json',JSON.stringify(l,null,2))" \
-  && npm ci --no-audit --no-fund --registry=https://registry.npmjs.org
+  && if [ "$SKIP_FFMPEG_STATIC_DOWNLOAD" = "true" ]; then \
+       npm ci --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org \
+       && npm rebuild better-sqlite3 sharp --no-audit --no-fund --registry=https://registry.npmjs.org; \
+     else \
+       npm ci --no-audit --no-fund --registry=https://registry.npmjs.org; \
+     fi
 COPY backend/ ./
 # 运行时与既有服务器部署一致走 tsx（源码存在 bundler 风格无扩展名 import，tsc 产物 node 直跑不可行）；
 # tsx 是 devDependency，prune 后单独补装
