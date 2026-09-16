@@ -34,13 +34,19 @@ RUN npm prune --omit=dev && npm i tsx@^4.21.0 --no-save --no-audit --no-fund --r
 # ===== 运行时 =====
 FROM node:20-bookworm-slim
 ARG HUOBAO_VERSION=dev
+RUN sed -i -e 's|deb.debian.org|mirrors.cloud.tencent.com|g' -e 's|https://|http://|g' /etc/apt/sources.list.d/debian.sources \
+  && apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Verify-Peer=false update \
+  && apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Verify-Peer=false install -y --no-install-recommends ca-certificates ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production \
     HUOBAO_VERSION=${HUOBAO_VERSION} \
     PORT=5679 \
     HUOBAO_DATA_DIR=/app/data \
     SQLITE_PATH=/app/data/huobao.sqlite3 \
     WORKSPACE_PATH=/app/data/workspace \
-    FRONTEND_DIST=/app/frontend-dist
+    FRONTEND_DIST=/app/frontend-dist \
+    FFMPEG_BIN=/usr/bin/ffmpeg \
+    FFPROBE_BIN=/usr/bin/ffprobe
 
 WORKDIR /app
 COPY --from=backend-build /build/backend/src ./backend/src
