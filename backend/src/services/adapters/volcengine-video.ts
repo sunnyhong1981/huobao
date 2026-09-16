@@ -158,26 +158,33 @@ export class VolcEngineVideoAdapter implements VideoProviderAdapter {
   }
 
   parsePollResponse(result: any): VideoPollResponse {
-    const status = result.status
-    if (status === 'succeeded') {
-      const videoUrl = result.video_url || result.content?.video_url || result.data?.video_url
+    // OpenAI-compatible gateways return { code, message, data }, while the
+    // native endpoint returns the task fields at the top level.
+    const task = result?.data && typeof result.data === 'object' ? result.data : (result || {})
+    const status = String(task.status || result?.status || '').toLowerCase()
+    const videoUrl = task.result_url || task.video_url || task.content?.video_url
+      || result?.result_url || result?.video_url || result?.content?.video_url || result?.data?.video_url
+
+    if (status === 'succeeded' || status === 'success' || status === 'completed') {
       return {
         status: 'completed',
         videoUrl,
       }
     }
-    if (status === 'failed') {
+    if (status === 'failed' || status === 'fail' || status === 'error') {
       // 上游 error 可能是对象 { code, message }（如 OutputVideoSensitiveContentDetected），规范成字符串
-      const err = result.error
+      const err = task.fail_reason || task.error || result?.error
       const msg = typeof err === 'string' ? err : (err?.message || JSON.stringify(err) || 'Video generation failed')
       const code = err && typeof err === 'object' && err.code ? `[${err.code}] ` : ''
       return { status: 'failed', error: `${code}${msg}` }
     }
-    return { status: status || 'processing' }
+    return { status: status === 'pending' ? 'pending' : 'processing' }
   }
 
   extractVideoUrl(result: any): string | null {
-    return result.video_url || result.content?.video_url || result.data?.video_url || null
+    const task = result?.data && typeof result.data === 'object' ? result.data : (result || {})
+    return task.result_url || task.video_url || task.content?.video_url
+      || result?.result_url || result?.video_url || result?.content?.video_url || null
   }
 
   private normalizeDuration(duration?: number | null): number {
