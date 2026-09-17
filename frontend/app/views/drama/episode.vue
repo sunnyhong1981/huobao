@@ -2857,6 +2857,49 @@ function watchAsyncResult(check, attempts = 24, delay = 2500) {
   })()
 }
 
+function imageAssetTypeLabel(type) {
+  return type === 'character' ? t('common.role') : type === 'scene' ? t('common.scene') : t('common.prop')
+}
+
+function clearPendingImage(type, id) {
+  if (type === 'character') pendingCharImageIds.value = pendingCharImageIds.value.filter(item => item !== id)
+  else if (type === 'scene') pendingSceneImageIds.value = pendingSceneImageIds.value.filter(item => item !== id)
+  else pendingPropImageIds.value = pendingPropImageIds.value.filter(item => item !== id)
+}
+
+// 图片接口立即返回任务 ID，必须按任务终态提示结果；只检查图片 URL 会让失败任务静默超时。
+function watchImageGeneration(taskId, type, assetId, attempts = 360, delay = 2500) {
+  if (!taskId) return
+  void (async () => {
+    for (let i = 0; i < attempts; i++) {
+      await sleep(delay)
+      try {
+        const task = await taskAPI.get(taskId)
+        if (task?.status === 'completed') {
+          // 任务先标记完成，随后回写角色/场景/道具表，短暂等待避免刷新竞态。
+          await sleep(300)
+          await refresh()
+          clearPendingImage(type, assetId)
+          toast.success(t('episode.image.generated', { type: imageAssetTypeLabel(type) }))
+          return
+        }
+        if (task?.status === 'failed') {
+          clearPendingImage(type, assetId)
+          toast.error(t('episode.image.generateFailed', {
+            type: imageAssetTypeLabel(type),
+            message: task.error_msg || task.errorMsg || t('episode.image.unknownError'),
+          }))
+          return
+        }
+      } catch {
+        // 短暂的轮询请求失败不代表生成任务失败，下一轮继续查询。
+      }
+    }
+    clearPendingImage(type, assetId)
+    toast.error(t('episode.image.generateTimeout', { type: imageAssetTypeLabel(type) }))
+  })()
+}
+
 async function genCharImg(id) {
   try {
     if (!isPendingCharImage(id)) pendingCharImageIds.value.push(id)
@@ -2867,15 +2910,10 @@ async function genCharImg(id) {
         await ensureAssetPrompt('character', id)
       } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
     }
-    await characterAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
+    const generation = await characterAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
     toast.success(t('episode.image.generatingChar'))
     await refresh()
-    watchAsyncResult(() => {
-      const char = chars.value.find(c => c.id === id)
-      const done = !!(char?.image_url || char?.imageUrl)
-      if (done) pendingCharImageIds.value = pendingCharImageIds.value.filter(item => item !== id)
-      return done
-    })
+    watchImageGeneration(generation?.image_generation_id, 'character', id)
   } catch (e) {
     pendingCharImageIds.value = pendingCharImageIds.value.filter(item => item !== id)
     toastError(e)
@@ -2909,15 +2947,10 @@ async function genSceneImg(id) {
         await ensureAssetPrompt('scene', id)
       } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
     }
-    await sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
+    const generation = await sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
     toast.success(t('episode.image.generatingScene'))
     await refresh()
-    watchAsyncResult(() => {
-      const scene = scenes.value.find(s => s.id === id)
-      const done = !!(scene?.image_url || scene?.imageUrl)
-      if (done) pendingSceneImageIds.value = pendingSceneImageIds.value.filter(item => item !== id)
-      return done
-    })
+    watchImageGeneration(generation?.image_generation_id, 'scene', id)
   } catch (e) {
     pendingSceneImageIds.value = pendingSceneImageIds.value.filter(item => item !== id)
     toastError(e)
@@ -2936,15 +2969,10 @@ async function genPropImg(id) {
         await ensureAssetPrompt('prop', id)
       } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
     }
-    await propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
+    const generation = await propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
     toast.success(t('episode.image.generatingProp'))
     await refresh()
-    watchAsyncResult(() => {
-      const prop = propItems.value.find(p => p.id === id)
-      const done = !!(prop?.image_url || prop?.imageUrl)
-      if (done) pendingPropImageIds.value = pendingPropImageIds.value.filter(item => item !== id)
-      return done
-    })
+    watchImageGeneration(generation?.image_generation_id, 'prop', id)
   } catch (e) {
     pendingPropImageIds.value = pendingPropImageIds.value.filter(item => item !== id)
     toastError(e)

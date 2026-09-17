@@ -565,7 +565,7 @@
 import { toast } from 'vue-sonner'
 import { toastError } from '~/composables/useToast'
 import { useI18n } from 'vue-i18n'
-import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI, uploadAPI } from '~/composables/useApi'
+import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI, taskAPI, uploadAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
 
 const { t, locale } = useI18n()
@@ -758,29 +758,39 @@ async function generateMaterial(m) {
   if (pendingMaterials.value.has(key)) return
   pendingMaterials.value = new Set(pendingMaterials.value).add(key)
   try {
-    if (m.kindKey === 'character') await characterAPI.generateImage(m.id, epId)
-    else if (m.kindKey === 'scene') await sceneAPI.generateImage(m.id, epId)
-    else await propAPI.generateImage(m.id, epId)
+    const generation = m.kindKey === 'character'
+      ? await characterAPI.generateImage(m.id, epId)
+      : m.kindKey === 'scene'
+        ? await sceneAPI.generateImage(m.id, epId)
+        : await propAPI.generateImage(m.id, epId)
     toast.success(t('detail.mat.generating', { kind: m.kind, name: m.name }))
-    pollMaterial(m)
+    pollMaterial(m, generation?.image_generation_id)
   } catch (e) {
     pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
     toastError(e)
   }
 }
 
-// 生图为异步任务：轮询重新加载 drama，直到该素材 imageUrl 出现
-async function pollMaterial(m) {
+// 生图为异步任务：按任务状态结束轮询并告知成功或失败。
+async function pollMaterial(m, taskId) {
   const key = pendingKey(m)
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 360; i++) {
     await sleep(2500)
-    await load()
-    const d = drama.value
-    const list = m.kindKey === 'character' ? d?.characters : m.kindKey === 'scene' ? d?.scenes : d?.props
-    const rec = list?.find(x => x.id === m.id)
-    if (rec && matImage(rec)) {
+    try {
+      const task = taskId ? await taskAPI.get(taskId) : null
+      if (task?.status === 'failed') {
+        pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
+        toast.error(t('detail.mat.genFailed', { kind: m.kind, name: m.name, message: task.error_msg || task.errorMsg || t('detail.mat.unknownError') }))
+        return
+      }
+      if (task?.status !== 'completed') continue
+      await sleep(300)
+      await load()
       pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
+      toast.success(t('detail.mat.generated', { kind: m.kind, name: m.name }))
       return
+    } catch {
+      // 轮询自身的瞬时网络错误不代表图片任务失败。
     }
   }
   pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
