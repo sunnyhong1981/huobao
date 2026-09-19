@@ -741,6 +741,7 @@
       "generating": "视频生成中",
       "genDone": "视频生成完成",
       "genFailed": "视频生成失败",
+      "referenceImageRoleMissing": "视频参考图片格式不正确，缺少参考图片标记。已修复，请重新生成视频。",
       "genTimeout": "视频生成超时",
       "allDone": "所有镜头视频已生成",
       "moderationHint": "疑似真人/敏感内容审核未通过，可在顶栏切换其他视频模型后重试",

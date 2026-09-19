@@ -84,11 +84,12 @@ export class VolcEngineVideoAdapter implements VideoProviderAdapter {
     // prompt/images/content request shapes intact.
     if (usesDreaminaGateway) {
       const body: any = { model, resolution, ratio, duration }
-      if (refVideos.length || refAudios.length) {
+      // The gateway translates images into content but does not infer the
+      // reference_image role. Use the role-aware content form for every ref.
+      if (refImages.length || refVideos.length || refAudios.length) {
         body.content = content
       } else {
         if (prompt) body.prompt = prompt
-        if (refImages.length) body.images = refImages
       }
       return {
         url: joinProviderUrl(config.baseUrl, '/v1', '/video/generations'),

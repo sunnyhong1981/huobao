@@ -1951,6 +1951,12 @@ function videoModerationHint(msg) {
   return MODERATION_RE.test(String(msg || '')) ? t('episode.vid.moderationHint') : ''
 }
 
+function videoFailureMessage(msg) {
+  const raw = String(msg || '')
+  if (/role must be specified for image contents/i.test(raw)) return t('episode.vid.referenceImageRoleMissing')
+  return mapError(raw, { fallback: 'episode.vid.genFailed' })
+}
+
 function videoTaskState(sb) {
   if (hasVid(sb)) return 'done'
   if (isPendingVideo(sb?.id)) return 'pending'
@@ -3339,9 +3345,9 @@ async function pollVideoGeneration(generationId, storyboardId) {
         const errMsg = res?.error_msg || res?.errorMsg || t('episode.vid.genFailed')
         failedVideoMessages.value = {
           ...failedVideoMessages.value,
-          [storyboardId]: errMsg,
+          [storyboardId]: videoFailureMessage(errMsg),
         }
-        toastError(errMsg, { fallback: 'episode.vid.genFailed' })
+        toast.error(videoFailureMessage(errMsg))
         return
       }
     } catch {}

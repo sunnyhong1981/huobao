@@ -741,6 +741,7 @@
       "generating": "Video generating",
       "genDone": "Video generation complete",
       "genFailed": "Video generation failed",
+      "referenceImageRoleMissing": "Video reference image format is invalid because its reference role is missing. The issue is fixed; generate the video again.",
       "genTimeout": "Video generation timed out",
       "allDone": "All shot videos generated",
       "moderationHint": "Looks like a real-person/sensitive content moderation rejection — switch video model in the top bar and retry",
