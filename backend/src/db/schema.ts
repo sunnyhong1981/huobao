@@ -222,6 +222,21 @@ export const sysTask = sqliteTable('sys_task', {
   completedAt: text('completed_at'),
 })
 
+// 长耗时 Agent 操作（例如剧本改写）独立建模。浏览器只需短请求提交任务，
+// 后续通过状态接口获取结果，避免代理或客户端的长连接限制影响实际执行。
+export const agentTasks = sqliteTable('agent_tasks', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  agentType: text('agent_type').notNull(),
+  dramaId: integer('drama_id').notNull(),
+  episodeId: integer('episode_id').notNull(),
+  status: text('status').notNull().default('processing'),
+  result: text('result'),
+  errorMsg: text('error_msg'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  completedAt: text('completed_at'),
+})
+
 export const videoMerges = sqliteTable('video_merges', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   episodeId: integer('episode_id'),

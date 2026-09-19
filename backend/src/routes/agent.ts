@@ -2,10 +2,12 @@
  * Agent 聊天路由 — 非流式版本
  */
 import { Hono } from 'hono'
+import { and, eq } from 'drizzle-orm'
 import { validAgentTypes } from '../agents/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
 import { mastra } from '../mastra/index.js'
-import { success, badRequest } from '../utils/response.js'
+import { db, getInsertId, schema } from '../db/index.js'
+import { success, badRequest, now } from '../utils/response.js'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 
 const app = new Hono()
@@ -28,33 +30,21 @@ function normalizeToolResult(entry: any) {
   return typeof result === 'string' ? result : JSON.stringify(result)
 }
 
-// POST /agent/:type/chat — 非流式 Agent 对话
-app.post('/:type/chat', async (c) => {
-  const agentType = c.req.param('type')
+function validateAgentRequest(agentType: string, body: any) {
   if (!validAgentTypes.includes(agentType)) {
-    return badRequest(c, `无效的 Agent 类型：${agentType}`)
+    return `无效的 Agent 类型：${agentType}`
   }
+  if (!body?.episode_id || !body?.drama_id) return '需要 drama_id 与 episode_id'
+  if (!mastra.getAgent(agentType)) return 'Agent 不存在'
+  return null
+}
 
-  const body = await c.req.json()
+async function executeAgent(agentType: string, body: any) {
   const { message, drama_id, episode_id } = body
+  const agent = mastra.getAgent(agentType)!
 
-  logTaskStart('Agent', agentType, {
-    dramaId: drama_id,
-    episodeId: episode_id,
-    message,
-  })
+  logTaskStart('Agent', agentType, { dramaId: drama_id, episodeId: episode_id, message })
   logTaskPayload('Agent', `${agentType} input`, body)
-
-  if (!episode_id || !drama_id) {
-    logTaskError('Agent', agentType, { reason: 'missing drama_id or episode_id' })
-    return badRequest(c, '需要 drama_id 与 episode_id')
-  }
-
-  const agent = mastra.getAgent(agentType)
-  if (!agent) {
-    logTaskError('Agent', agentType, { reason: 'agent not found' })
-    return badRequest(c, 'Agent 不存在')
-  }
 
   const requestContext = buildAgentRequestContext({
     episodeId: episode_id,
@@ -93,16 +83,74 @@ app.post('/:type/chat', async (c) => {
     })
     logTaskPayload('Agent', `${agentType} tool-results`, normalizedToolResults)
 
-    return success(c, {
+    return {
       type: 'done',
       text: result.text || '',
       toolCalls: normalizedToolCalls,
       toolResults: normalizedToolResults,
-    })
+    }
   } catch (err: any) {
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
     logTaskError('Agent', agentType, { elapsedSeconds: elapsed, error: err.message })
     console.error(err.stack || err)
+    throw err
+  }
+}
+
+// POST /agent/:type/start — 将长耗时 Agent 放入后台，前端改为轮询任务状态。
+// 目前剧本改写使用此入口，避免浏览器或中间代理断开长达数分钟的 HTTP 请求。
+app.post('/:type/start', async (c) => {
+  const agentType = c.req.param('type')
+  const body = await c.req.json()
+  const validationError = validateAgentRequest(agentType, body)
+  if (validationError) return badRequest(c, validationError)
+
+  const ts = now()
+  const insert = await db.insert(schema.agentTasks).values({
+    agentType,
+    dramaId: Number(body.drama_id),
+    episodeId: Number(body.episode_id),
+    status: 'processing',
+    createdAt: ts,
+    updatedAt: ts,
+  })
+  const jobId = getInsertId(insert)
+
+  void executeAgent(agentType, body)
+    .then(async result => {
+      await db.update(schema.agentTasks)
+        .set({ status: 'completed', result: JSON.stringify(result), completedAt: now(), updatedAt: now() })
+        .where(eq(schema.agentTasks.id, jobId))
+    })
+    .catch(async (err: any) => {
+      await db.update(schema.agentTasks)
+        .set({ status: 'failed', errorMsg: err.message || 'Agent 执行失败', updatedAt: now() })
+        .where(eq(schema.agentTasks.id, jobId))
+    })
+
+  return success(c, { job_id: jobId, status: 'processing' })
+})
+
+// GET /agent/:type/jobs/:id — 查询后台 Agent 任务状态。
+app.get('/:type/jobs/:id', async (c) => {
+  const agentType = c.req.param('type')
+  if (!validAgentTypes.includes(agentType)) return badRequest(c, '无效的 Agent 类型')
+  const id = Number(c.req.param('id'))
+  const [job] = await db.select().from(schema.agentTasks)
+    .where(and(eq(schema.agentTasks.id, id), eq(schema.agentTasks.agentType, agentType)))
+  return success(c, job || null)
+})
+
+// POST /agent/:type/chat — 非流式 Agent 对话（保留给需要同步结果的短操作）
+app.post('/:type/chat', async (c) => {
+  const agentType = c.req.param('type')
+  const body = await c.req.json()
+  const validationError = validateAgentRequest(agentType, body)
+  if (validationError) return badRequest(c, validationError)
+
+  try {
+    return success(c, await executeAgent(agentType, body))
+  } catch (err: any) {
     return badRequest(c, err.message || 'Agent 执行失败')
   }
 })

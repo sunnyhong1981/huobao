@@ -90,7 +90,9 @@
   "composables": {
     "agent": {
       "busy": "操作执行中",
-      "done": "完成"
+      "done": "完成",
+      "started": "任务已提交，正在处理中",
+      "timeout": "任务等待超时，可稍后刷新查看结果"
     }
   },
   "index": {

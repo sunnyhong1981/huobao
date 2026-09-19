@@ -90,7 +90,9 @@
   "composables": {
     "agent": {
       "busy": "Operation in progress",
-      "done": "Done"
+      "done": "Done",
+      "started": "Task submitted and processing",
+      "timeout": "Task wait timed out; refresh later to check the result"
     }
   },
   "index": {

@@ -226,6 +226,21 @@ export const sqliteSchemaStatements = [
   `CREATE INDEX IF NOT EXISTS idx_sys_task_drama_id ON sys_task (drama_id)`,
   `CREATE INDEX IF NOT EXISTS idx_sys_task_storyboard_id ON sys_task (storyboard_id)`,
 
+  `CREATE TABLE IF NOT EXISTS agent_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent_type TEXT NOT NULL,
+    drama_id INTEGER NOT NULL,
+    episode_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'processing',
+    result TEXT,
+    error_msg TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    completed_at TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_agent_tasks_episode_id ON agent_tasks (episode_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_agent_tasks_status ON agent_tasks (status)`,
+
   `CREATE TABLE IF NOT EXISTS video_merges (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     episode_id INTEGER,
