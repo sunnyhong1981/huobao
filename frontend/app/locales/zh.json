@@ -741,6 +741,7 @@
       "generating": "视频生成中",
       "genDone": "视频生成完成",
       "genFailed": "视频生成失败",
+      "referenceImagePrivacyRejected": "当前视频模型将角色参考图识别为可能包含真人，无法使用这些图片。请改用明显的动画/插画角色图，或取消角色参考图后重试。",
       "referenceImageRoleMissing": "视频参考图片格式不正确，缺少参考图片标记。已修复，请重新生成视频。",
       "genTimeout": "视频生成超时",
       "allDone": "所有镜头视频已生成",

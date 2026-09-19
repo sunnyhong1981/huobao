@@ -1953,6 +1953,9 @@ function videoModerationHint(msg) {
 
 function videoFailureMessage(msg) {
   const raw = String(msg || '')
+  if (/InputImageSensitiveContentDetected\.PrivacyInformation|input image.*may contain real person/i.test(raw)) {
+    return t('episode.vid.referenceImagePrivacyRejected')
+  }
   if (/role must be specified for image contents/i.test(raw)) return t('episode.vid.referenceImageRoleMissing')
   return mapError(raw, { fallback: 'episode.vid.genFailed' })
 }

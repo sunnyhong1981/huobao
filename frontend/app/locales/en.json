@@ -741,6 +741,7 @@
       "generating": "Video generating",
       "genDone": "Video generation complete",
       "genFailed": "Video generation failed",
+      "referenceImagePrivacyRejected": "The video model detected a possible real person in the character references and cannot use those images. Use clearly illustrated or animated character references, or retry without character references.",
       "referenceImageRoleMissing": "Video reference image format is invalid because its reference role is missing. The issue is fixed; generate the video again.",
       "genTimeout": "Video generation timed out",
       "allDone": "All shot videos generated",
