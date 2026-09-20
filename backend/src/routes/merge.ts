@@ -2,11 +2,36 @@ import { Hono } from 'hono'
 import { and, eq, isNull } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, badRequest } from '../utils/response.js'
-import { mergeEpisodeVideos } from '../services/ffmpeg-merge.js'
+import { generateEpisodeSubtitles, getEpisodeSubtitles, mergeEpisodeVideos, saveEpisodeSubtitles } from '../services/ffmpeg-merge.js'
 import { toSnakeCase } from '../utils/transform.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 
 const app = new Hono()
+
+app.get('/episodes/:id/subtitles', async (c) => {
+  return success(c, { content: await getEpisodeSubtitles(Number(c.req.param('id'))) })
+})
+
+app.post('/episodes/:id/subtitles/generate', async (c) => {
+  const episodeId = Number(c.req.param('id'))
+  const [episode] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
+  if (!episode) return badRequest(c, '剧集不存在')
+  try {
+    return success(c, { content: await generateEpisodeSubtitles(episodeId, episode.dramaId) })
+  } catch (err: any) {
+    return badRequest(c, err.message)
+  }
+})
+
+app.put('/episodes/:id/subtitles', async (c) => {
+  try {
+    const body = await c.req.json()
+    const path = await saveEpisodeSubtitles(Number(c.req.param('id')), body?.content)
+    return success(c, { path })
+  } catch (err: any) {
+    return badRequest(c, err.message)
+  }
+})
 
 // POST /episodes/:id/merge — 拼接镜头视频(body.storyboard_ids 可选,只拼所选)
 app.post('/episodes/:id/merge', async (c) => {

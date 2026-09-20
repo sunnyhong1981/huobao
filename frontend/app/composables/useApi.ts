@@ -131,6 +131,9 @@ export const mergeAPI = {
   merge: (epId: number, storyboardIds?: number[]) => api.post(`/merge/episodes/${epId}/merge`, storyboardIds?.length ? { storyboard_ids: storyboardIds } : {}),
   status: (epId: number) => api.get(`/merge/episodes/${epId}/merge`),
   list: (epId: number) => api.get<any[]>(`/merge/episodes/${epId}/merges`),
+  subtitles: (epId: number) => api.get<{ content: string }>(`/merge/episodes/${epId}/subtitles`),
+  generateSubtitles: (epId: number) => api.post<{ content: string }>(`/merge/episodes/${epId}/subtitles/generate`),
+  saveSubtitles: (epId: number, content: string) => api.put(`/merge/episodes/${epId}/subtitles`, { content }),
 }
 export const aiConfigAPI = {
   list: (t?: string) => api.get(`/ai-configs${t ? `?service_type=${t}` : ''}`),

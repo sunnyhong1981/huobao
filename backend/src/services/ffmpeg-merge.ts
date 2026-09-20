@@ -18,12 +18,128 @@ function toAbsPath(relativePath: string): string {
   return path.join(STORAGE_ROOT, relativePath)
 }
 
+function getDramaVideoUrl(metadata: string | null, field: 'openingVideoUrl' | 'endingVideoUrl'): string | null {
+  if (!metadata) return null
+  try {
+    const parsed = JSON.parse(metadata)
+    return typeof parsed?.[field] === 'string' && parsed[field].trim()
+      ? parsed[field].trim()
+      : null
+  } catch {
+    return null
+  }
+}
+
+function subtitleRelativePath(episodeId: number): string {
+  return `static/subtitles/episode-${episodeId}.srt`
+}
+
+function subtitleAssRelativePath(episodeId: number): string {
+  return `static/subtitles/episode-${episodeId}.ass`
+}
+
+function toSrtTimestamp(seconds: number): string {
+  const totalMs = Math.max(0, Math.round(seconds * 1000))
+  const hours = Math.floor(totalMs / 3_600_000)
+  const minutes = Math.floor(totalMs % 3_600_000 / 60_000)
+  const secs = Math.floor(totalMs % 60_000 / 1000)
+  const ms = totalMs % 1000
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(ms).padStart(3, '0')}`
+}
+
+function extractCaptionTexts(description: string | null, videoPrompt: string | null): string[] {
+  const source = `${description || ''}\n${videoPrompt || ''}`.replace(/\s+/g, ' ')
+  const captions = [
+    ...[...source.matchAll(/旁白[：:]\s*([^。！？!?]+[。！？!?]?)/g)].map(match => match[1].trim()),
+    ...[...source.matchAll(/「([^」]+)」/g)].map(match => match[1].trim()),
+  ].filter(Boolean)
+  return [...new Set(captions)]
+}
+
+export async function getEpisodeSubtitles(episodeId: number): Promise<string> {
+  const filePath = toAbsPath(subtitleRelativePath(episodeId))
+  return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : ''
+}
+
+export async function saveEpisodeSubtitles(episodeId: number, content: string): Promise<string> {
+  const normalized = String(content || '').replace(/\r\n/g, '\n').trim()
+  if (!normalized) throw new Error('字幕内容不能为空')
+  if (!/\d{2}:\d{2}:\d{2},\d{3}\s+-->\s+\d{2}:\d{2}:\d{2},\d{3}/.test(normalized)) {
+    throw new Error('字幕格式无效，请使用 SRT 时间格式，例如 00:00:03,000 --> 00:00:06,000')
+  }
+  const filePath = toAbsPath(subtitleRelativePath(episodeId))
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  fs.writeFileSync(filePath, `${normalized}\n`, 'utf-8')
+  fs.writeFileSync(toAbsPath(subtitleAssRelativePath(episodeId)), srtToAss(normalized), 'utf-8')
+  return subtitleRelativePath(episodeId)
+}
+
+function srtToAss(content: string): string {
+  const timestamp = (value: string) => {
+    const match = value.trim().match(/^(\d+):(\d{2}):(\d{2}),(\d{3})$/)
+    if (!match) return value.trim()
+    const [, hours, minutes, seconds, milliseconds] = match
+    return `${Number(hours)}:${minutes}:${seconds}.${milliseconds.slice(0, 2)}`
+  }
+  const blocks = content.split(/\n\s*\n/)
+  const lines = blocks.flatMap(block => {
+    const parts = block.split('\n').filter(Boolean)
+    const timing = parts.find(line => line.includes('-->'))
+    if (!timing) return []
+    const [start, end] = timing.split('-->').map(timestamp)
+    const text = parts.slice(parts.indexOf(timing) + 1).join('\\N')
+      .replace(/[{}]/g, '\\$&')
+    return text ? [`Dialogue: 0,${start},${end},Default,,0,0,0,,${text}`] : []
+  })
+  return `[Script Info]\nScriptType: v4.00+\nPlayResX: 864\nPlayResY: 496\n\n[V4+ Styles]\nFormat: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding\nStyle: Default,Songti SC,20,&H00FFFFFF,&H000000FF,&H00101010,&H80000000,0,0,0,0,100,100,0,0,1,2,0,2,24,24,28,1\n\n[Events]\nFormat: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\n${lines.join('\n')}\n`
+}
+
+export async function generateEpisodeSubtitles(episodeId: number, dramaId: number): Promise<string> {
+  const [drama] = await db.select({ metadata: schema.dramas.metadata })
+    .from(schema.dramas)
+    .where(eq(schema.dramas.id, dramaId))
+  const openingVideoUrl = getDramaVideoUrl(drama?.metadata ?? null, 'openingVideoUrl')
+  const openingDuration = openingVideoUrl && fs.existsSync(toAbsPath(openingVideoUrl))
+    ? await getVideoDuration(toAbsPath(openingVideoUrl))
+    : 0
+  const storyboards = await db.select().from(schema.storyboards)
+    .where(eq(schema.storyboards.episodeId, episodeId))
+    .orderBy(schema.storyboards.storyboardNumber)
+
+  let cursor = openingDuration
+  const cues: { start: number; end: number; text: string }[] = []
+  for (const storyboard of storyboards) {
+    const duration = Math.max(1, Number(storyboard.duration || 5))
+    const texts = extractCaptionTexts(storyboard.description, storyboard.videoPrompt)
+    if (texts.length) {
+      const available = Math.max(1, duration - 0.8)
+      const cueDuration = available / texts.length
+      texts.forEach((text, index) => cues.push({
+        start: cursor + 0.4 + index * cueDuration,
+        end: cursor + 0.4 + (index + 1) * cueDuration,
+        text,
+      }))
+    }
+    cursor += duration
+  }
+  if (!cues.length) throw new Error('没有从分镜中提取到旁白或台词，无法生成字幕')
+  const content = cues.map((cue, index) => `${index + 1}\n${toSrtTimestamp(cue.start)} --> ${toSrtTimestamp(cue.end)}\n${cue.text}`).join('\n\n')
+  await saveEpisodeSubtitles(episodeId, content)
+  return content
+}
+
 /**
  * 拼接一集的镜头视频。
  * 优先使用视频生成产物，兼容历史的 composedVideoUrl 数据。
  * 传入 storyboardIds 时只拼接所选镜头（仍按镜号顺序）。
  */
 export async function mergeEpisodeVideos(episodeId: number, dramaId: number, storyboardIds?: number[]): Promise<number> {
+  const [drama] = await db.select({ metadata: schema.dramas.metadata })
+    .from(schema.dramas)
+    .where(eq(schema.dramas.id, dramaId))
+  const openingVideoUrl = getDramaVideoUrl(drama?.metadata ?? null, 'openingVideoUrl')
+  const endingVideoUrl = getDramaVideoUrl(drama?.metadata ?? null, 'endingVideoUrl')
+
   let storyboards = await db.select().from(schema.storyboards)
     .where(eq(schema.storyboards.episodeId, episodeId))
     .orderBy(schema.storyboards.storyboardNumber)
@@ -47,17 +163,23 @@ export async function mergeEpisodeVideos(episodeId: number, dramaId: number, sto
     throw new Error('本机 ffmpeg 不可用，无法拼接视频（常见于 node_modules 跨平台拷贝或 ffmpeg-static 下载损坏）。请删除 node_modules 后在本机重新 npm install，或设置 FFMPEG_BIN 指向有效的 ffmpeg 可执行文件后重启服务')
   }
 
+  const mergeClips = [
+    ...(openingVideoUrl ? [{ label: '片头', url: openingVideoUrl }] : []),
+    ...clips.map(c => ({ label: `S${c.sb.storyboardNumber}`, url: c.url })),
+    ...(endingVideoUrl ? [{ label: '片尾', url: endingVideoUrl }] : []),
+  ]
+
   // 校验视频文件真实存在:DB 里的 video_url 可能指向已被清理的文件,
   // 直接拼会得到 ffmpeg 的 "No such file or directory" 晦涩报错
-  const missing = clips.filter(c => !fs.existsSync(toAbsPath(c.url)))
+  const missing = mergeClips.filter(c => !fs.existsSync(toAbsPath(c.url)))
   if (missing.length > 0) {
-    const nums = missing.map(c => `S${c.sb.storyboardNumber}`).join('、')
-    throw new Error(`镜头 ${nums} 的视频文件已丢失（本地文件不存在），请重新生成这些镜头的视频，或在拼接时取消勾选`)
+    const labels = missing.map(c => c.label).join('、')
+    throw new Error(`${labels} 的视频文件不存在于服务器，请重新生成对应视频后再拼接`)
   }
 
-  const videos = clips.map(c => c.url)
+  const videos = mergeClips.map(c => c.url)
 
-  logTaskStart('MergeTask', 'episode-merge', { episodeId, dramaId, clips: videos.length })
+  logTaskStart('MergeTask', 'episode-merge', { episodeId, dramaId, clips: videos.length, hasOpening: Boolean(openingVideoUrl), hasEnding: Boolean(endingVideoUrl) })
 
   // 创建 merge 记录
   const ts = now()
@@ -101,6 +223,8 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
   fs.mkdirSync(outputDir, { recursive: true })
   const outputFilename = `${uuid()}.mp4`
   const outputPath = path.join(outputDir, outputFilename)
+  const subtitlePath = toAbsPath(subtitleAssRelativePath(episodeId))
+  const hasSubtitles = fs.existsSync(subtitlePath)
 
   await new Promise<void>((resolve, reject) => {
     ffmpeg()
@@ -108,6 +232,7 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
       .inputOptions(['-f', 'concat', '-safe', '0'])
       .outputOptions([
         '-fflags', '+genpts',
+        ...(hasSubtitles ? ['-vf', `ass=filename=${subtitlePath}:fontsdir=${path.join(DATA_ROOT, 'fonts')}`] : []),
         '-c:v', 'libx264',
         '-preset', 'medium',
         '-crf', '23',
@@ -144,7 +269,7 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
     .set({ videoUrl: mergedRelative, updatedAt: now() })
     .where(eq(schema.episodes.id, episodeId))
 
-  logTaskSuccess('MergeTask', 'episode-merge', { mergeId, episodeId, output: mergedRelative, duration, clips: videos.length })
+  logTaskSuccess('MergeTask', 'episode-merge', { mergeId, episodeId, output: mergedRelative, duration, clips: videos.length, hasSubtitles })
 }
 
 function getVideoDuration(filePath: string): Promise<number> {

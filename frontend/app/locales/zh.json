@@ -580,6 +580,8 @@
       "appearanceField": "样貌",
       "appearanceFieldPlaceholder": "年龄感、五官、体态、气质等",
       "stylingField": "妆造",
+      "seedanceAssetUrl": "Seedance 素材 URI",
+      "seedanceAssetUrlPlaceholder": "asset://asset-...（仅 Seedance 视频生成使用）",
       "stylingFieldPlaceholder": "发型、服装、妆面、配饰等",
       "sceneDescField": "场景描述",
       "sceneDescPlaceholder": "空间、陈设、年代质感、关键视觉元素等",

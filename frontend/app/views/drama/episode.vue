@@ -921,6 +921,23 @@
               <div v-else class="export-merge-empty">{{ t('episode.export.empty') }}</div>
             </div>
 
+            <div class="export-section">
+              <div class="export-section-head">
+                <span class="export-section-title">字幕</span>
+                <span class="dim" style="font-size:11px">保存后会在下一次拼接时烧录到成片</span>
+                <div class="ml-auto flex gap-1">
+                  <button class="btn btn-sm" :disabled="subtitleBusy" @click="generateSubtitles">{{ subtitleBusy ? '生成中...' : '自动生成' }}</button>
+                  <button class="btn btn-sm btn-primary" :disabled="subtitleBusy || !subtitleDraft.trim()" @click="saveSubtitles">保存字幕</button>
+                </div>
+              </div>
+              <textarea
+                v-model="subtitleDraft"
+                class="subtitle-editor"
+                placeholder="点击“自动生成”后可编辑 SRT 字幕"
+                spellcheck="false"
+              />
+            </div>
+
             <!-- 下方:镜头素材(可勾选) -->
             <div class="export-section export-section-grow">
               <div class="export-section-head">
@@ -1170,6 +1187,14 @@
                       class="textarea asset-detail-textarea"
                       rows="6"
                       :placeholder="t('episode.asset.stylingFieldPlaceholder')"
+                    />
+                  </label>
+                  <label v-if="assetDetail.type === 'character'" class="asset-detail-edit-field">
+                    <span>{{ t('episode.asset.seedanceAssetUrl') }}</span>
+                    <input
+                      v-model="assetDetailDraft.seedanceAssetUrl"
+                      class="input"
+                      :placeholder="t('episode.asset.seedanceAssetUrlPlaceholder')"
                     />
                   </label>
                   <label v-if="assetDetail.type === 'scene'" class="asset-detail-edit-field">
@@ -1475,6 +1500,8 @@ const scriptLen = computed(() => localScript.value.replace(/\s/g, '').length || 
 const exportSelectedIds = ref([]) // 勾选的镜头 id
 const exportMerges = ref([])      // 成片(拼接记录)列表
 let exportSelTouched = false      // 用户手动操作过选择后,不再自动全选
+const subtitleDraft = ref('')
+const subtitleBusy = ref(false)
 
 const exportReadyIds = computed(() => sbs.value.filter(s => hasVid(s)).map(s => s.id))
 const exportSelectedReadyIds = computed(() => exportSelectedIds.value.filter(id => exportReadyIds.value.includes(id)))
@@ -1503,6 +1530,33 @@ function toggleSelectAllExport() {
 async function loadExportMerges() {
   if (!epId.value) return
   try { exportMerges.value = await mergeAPI.list(epId.value) || [] } catch { /* 静默 */ }
+}
+
+async function loadSubtitles() {
+  if (!epId.value) return
+  try { subtitleDraft.value = (await mergeAPI.subtitles(epId.value))?.content || '' } catch { /* 静默 */ }
+}
+async function generateSubtitles() {
+  subtitleBusy.value = true
+  try {
+    subtitleDraft.value = (await mergeAPI.generateSubtitles(epId.value))?.content || ''
+    toast.success('已根据旁白和台词生成字幕，请检查后保存')
+  } catch (e) {
+    toastError(e, { fallback: '字幕生成失败' })
+  } finally {
+    subtitleBusy.value = false
+  }
+}
+async function saveSubtitles() {
+  subtitleBusy.value = true
+  try {
+    await mergeAPI.saveSubtitles(epId.value, subtitleDraft.value)
+    toast.success('字幕已保存，下一次拼接会自动烧录')
+  } catch (e) {
+    toastError(e, { fallback: '字幕保存失败' })
+  } finally {
+    subtitleBusy.value = false
+  }
 }
 
 const scriptStep = ref(storedPanel ? (storedPanel.scriptStep === 0 ? 0 : 1) : 0)
@@ -1633,7 +1687,7 @@ async function toggleExportDone() {
   }
 }
 const assetDetail = ref({ open: false, type: '', item: null })
-const assetDetailDraft = ref({ appearance: '', styling: '', prompt: '', lighting: '', description: '' })
+const assetDetailDraft = ref({ appearance: '', styling: '', seedanceAssetUrl: '', prompt: '', lighting: '', description: '' })
 // 最终提示词手动编辑：dirty 时才随保存提交，避免无修改保存误清空 Agent 生成的提示词
 const assetPromptDraft = ref('')
 const assetPromptDirty = ref(false)
@@ -1658,6 +1712,7 @@ function openAssetDetail(type, item) {
   assetDetailDraft.value = {
     appearance: item.appearance || '',
     styling: item.styling || '',
+    seedanceAssetUrl: item.seedance_asset_url || item.seedanceAssetUrl || '',
     prompt: item.prompt || (type === 'prop' ? '' : item.description) || '',
     lighting: item.lighting || '',
     description: item.description || '',
@@ -1668,7 +1723,7 @@ function openAssetDetail(type, item) {
 
 function closeAssetDetail() {
   assetDetail.value = { open: false, type: '', item: null }
-  assetDetailDraft.value = { appearance: '', styling: '', prompt: '', lighting: '', description: '' }
+  assetDetailDraft.value = { appearance: '', styling: '', seedanceAssetUrl: '', prompt: '', lighting: '', description: '' }
   assetPromptDraft.value = ''
   assetPromptDirty.value = false
 }
@@ -1836,6 +1891,10 @@ async function saveAssetDetail() {
   if (detail.type === 'character') {
     if (assetDetailDraft.value.appearance !== (item.appearance || '')) payload.appearance = assetDetailDraft.value.appearance
     if (assetDetailDraft.value.styling !== (item.styling || '')) payload.styling = assetDetailDraft.value.styling
+    const existingAssetUrl = item.seedance_asset_url || item.seedanceAssetUrl || ''
+    if (assetDetailDraft.value.seedanceAssetUrl.trim() !== existingAssetUrl) {
+      payload.seedance_asset_url = assetDetailDraft.value.seedanceAssetUrl.trim()
+    }
   } else if (detail.type === 'scene') {
     if (assetDetailDraft.value.prompt !== (item.prompt || '')) payload.prompt = assetDetailDraft.value.prompt
     if (assetDetailDraft.value.lighting !== (item.lighting || '')) payload.lighting = assetDetailDraft.value.lighting
@@ -3077,14 +3136,24 @@ function getShotReferenceImages(sb) {
     refs.push(value)
   }
   const scene = getStoryboardScene(sb)
-  pushRef(scene?.image_url || scene?.imageUrl)
+  pushRef(videoReferenceImage(scene))
   for (const char of getStoryboardCharacters(sb)) {
-    pushRef(char?.image_url || char?.imageUrl)
+    pushRef(videoReferenceImage(char))
   }
   for (const prop of getStoryboardProps(sb)) {
-    pushRef(prop?.image_url || prop?.imageUrl)
+    pushRef(videoReferenceImage(prop))
   }
   return refs
+}
+
+function usesSeedanceAssetLibrary() {
+  return /^(dreamina|doubao)-seedance-2-0/i.test(bareModelName(videoModel.value) || '')
+}
+
+function videoReferenceImage(asset) {
+  const imageUrl = asset?.image_url || asset?.imageUrl || ''
+  const seedanceAssetUrl = asset?.seedance_asset_url || asset?.seedanceAssetUrl || ''
+  return usesSeedanceAssetLibrary() && /^asset:\/\//i.test(seedanceAssetUrl) ? seedanceAssetUrl : imageUrl
 }
 
 // 右侧参考素材面板：本集全部可绑定素材（场景单选、角色/道具多选），bound 标记是否已绑定
@@ -3208,12 +3277,12 @@ function getShotReferenceIndexMap(sb) {
     ordered.push({ name, imageUrl: url })
   }
   const scene = getStoryboardScene(sb)
-  push(scene?.location || '', scene?.image_url || scene?.imageUrl)
+  push(scene?.location || '', videoReferenceImage(scene))
   for (const char of getStoryboardCharacters(sb)) {
-    push(char.name || '', char?.image_url || char?.imageUrl)
+    push(char.name || '', videoReferenceImage(char))
   }
   for (const prop of getStoryboardProps(sb)) {
-    push(prop.name || '', prop?.image_url || prop?.imageUrl)
+    push(prop.name || '', videoReferenceImage(prop))
   }
   const nameToIndex = {}
   ordered.forEach((a, i) => { if (a.name && !(a.name in nameToIndex)) nameToIndex[a.name] = i + 1 })
@@ -3401,7 +3470,7 @@ async function loadConfigs() {
   } catch (e) { console.error('Failed to load AI configs', e) }
 }
 
-onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
+onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus(); loadSubtitles() })
 
 // ===== 应用内引导（工作台）：沿左侧进度栏走 6 步流水线 =====
 const EPISODE_TOUR = [
@@ -5670,6 +5739,12 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
 .export-section-grow { flex: 1; }
 .export-section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .export-section-title { font-size: 13px; font-weight: 800; color: var(--text-0); }
+.subtitle-editor {
+  width: 100%; min-height: 132px; resize: vertical; box-sizing: border-box;
+  padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface-1); color: var(--text-0); font: 12px/1.5 var(--font-mono);
+}
+.subtitle-editor:focus { outline: none; border-color: var(--accent); }
 .export-merge-strip { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }
 .merge-card {
   flex: 0 0 auto;

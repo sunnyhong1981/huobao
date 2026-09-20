@@ -580,6 +580,8 @@
       "appearanceField": "Appearance",
       "appearanceFieldPlaceholder": "Age impression, facial features, build, temperament…",
       "stylingField": "Styling",
+      "seedanceAssetUrl": "Seedance Asset URI",
+      "seedanceAssetUrlPlaceholder": "asset://asset-... (used only for Seedance video generation)",
       "stylingFieldPlaceholder": "Hair, clothing, makeup, accessories…",
       "sceneDescField": "Scene description",
       "sceneDescPlaceholder": "Space, furnishings, period texture, key visual elements…",

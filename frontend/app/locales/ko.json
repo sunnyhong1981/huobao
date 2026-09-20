@@ -580,6 +580,8 @@
       "appearanceField": "외모",
       "appearanceFieldPlaceholder": "나이 감각, 이목구비, 체형, 분위기 등",
       "stylingField": "스타일링",
+      "seedanceAssetUrl": "Seedance 소재 URI",
+      "seedanceAssetUrlPlaceholder": "asset://asset-... (Seedance 영상 생성에만 사용)",
       "stylingFieldPlaceholder": "헤어스타일, 의상, 메이크업, 액세서리 등",
       "sceneDescField": "장면 설명",
       "sceneDescPlaceholder": "공간, 인테리어, 시대 질감, 주요 시각 요소 등",

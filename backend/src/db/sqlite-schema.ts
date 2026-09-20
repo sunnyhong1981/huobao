@@ -56,6 +56,7 @@ export const sqliteSchemaStatements = [
     final_prompt TEXT,
     personality TEXT,
     image_url TEXT,
+    seedance_asset_url TEXT,
     reference_images TEXT,
     seed_value TEXT,
     sort_order INTEGER,
@@ -393,6 +394,7 @@ export function initSqliteSchema(sqlite: Database.Database) {
   for (const statement of sqliteSchemaStatements) {
     sqlite.exec(statement)
   }
+  ensureColumn(sqlite, 'characters', 'seedance_asset_url', 'TEXT')
   const insertSeed = sqlite.prepare(SEED_SQL)
   const upgradeSeed = sqlite.prepare(UPGRADE_SQL)
   const removeSeed = sqlite.prepare(REMOVE_SQL)
@@ -408,5 +410,12 @@ export function initSqliteSchema(sqlite: Database.Database) {
   for (const [value, prompt] of Object.entries(REMOVED_SEED_PROMPTS)) {
     const res = removeSeed.run(value, prompt)
     if (res.changes > 0) console.log(`🗑️ 风格预设「${value}」已下架`)
+  }
+}
+
+function ensureColumn(sqlite: Database.Database, table: string, column: string, definition: string) {
+  const columns = sqlite.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
+  if (!columns.some(item => item.name === column)) {
+    sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
   }
 }

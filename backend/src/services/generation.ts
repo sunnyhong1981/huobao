@@ -1,6 +1,6 @@
 /**
  * 统一生成任务服务 — 图片/视频生成共用 sys_task 表与同一条生命周期：
- * 创建(processing) → 适配器构建请求 → 同步完成或异步轮询 → 下载落盘 → 回写业务表
+ * 创建(processing) → 适配器构建请求 → 同步完成或异步轮询 → 回写远程结果 → 异步下载落盘
  */
 import { db, getInsertId, schema } from '../db/index.js'
 import { eq } from 'drizzle-orm'
@@ -25,6 +25,8 @@ const POLL_PROFILES: Record<TaskType, { attempts: number; intervalMs: number; ma
 // 部分图片模型的同步生成耗时较长；请求上限高于网关的短连接阈值，
 // 由上游明确返回或网络断开时立即失败。
 const GENERATION_REQUEST_TIMEOUT_MS = 900_000
+// 跨区域 TOS 视频回源速度可能很慢。缓存不影响前端完成态，允许后台最多下载 15 分钟。
+const VIDEO_CACHE_DOWNLOAD_TIMEOUT_MS = 900_000
 
 interface GenerateImageParams {
   storyboardId?: number
@@ -225,7 +227,8 @@ async function processTask(id: number, config: AIConfig) {
       const resolvedImageUrl = await normalizeVideoReferenceUrl(params.imageUrl)
       const resolvedFirstFrameUrl = await normalizeVideoReferenceUrl(params.firstFrameUrl)
       const resolvedLastFrameUrl = await normalizeVideoReferenceUrl(params.lastFrameUrl)
-      const resolvedReferenceImageUrls = await normalizeVideoReferenceUrls(params.referenceImageUrls)
+      const referenceImageUrls = await preferSeedanceCharacterAssets(record, params.referenceImageUrls, record.model || config.model)
+      const resolvedReferenceImageUrls = await normalizeVideoReferenceUrls(referenceImageUrls)
       // 参考视频/音频文件较大，不适合 dataURL 内联，需解析为公网可访问 URL
       const resolvedReferenceVideoUrls = resolvePublicMediaUrls(params.referenceVideoUrls, 'video')
       const resolvedReferenceAudioUrls = resolvePublicMediaUrls(params.referenceAudioUrls, 'audio')
@@ -463,19 +466,43 @@ async function writeBackImageAssets(record: SysTaskRecord, localPath: string) {
 }
 
 async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, duration: number | null | undefined) {
-  const localPath = await downloadFile(videoUrl, 'videos')
-  // 海报帧供列表/封面展示，避免前端为显示首帧缓冲整个视频
-  await extractVideoPoster(localPath)
+  const completedAt = now()
   await db.update(schema.sysTask)
-    .set({ resultUrl: videoUrl, localPath, status: 'completed', completedAt: now(), updatedAt: now() })
+    .set({ resultUrl: videoUrl, status: 'completed', completedAt, updatedAt: completedAt })
     .where(eq(schema.sysTask.id, record.id))
 
-  logTaskSuccess('VideoTask', 'downloaded', { id: record.id, localPath, storyboardId: record.storyboardId, duration })
+  logTaskSuccess('VideoTask', 'remote-result-ready', { id: record.id, storyboardId: record.storyboardId, duration })
 
   if (record.storyboardId) {
     await db.update(schema.storyboards)
-      .set({ videoUrl: localPath, duration: duration || undefined, updatedAt: now() })
+      .set({ videoUrl, duration: duration || undefined, updatedAt: completedAt })
       .where(eq(schema.storyboards.id, record.storyboardId))
+  }
+
+  // TOS 临时视频链接偶尔在服务器侧下载极慢。先让用户直接播放，再后台缓存，缓存失败不影响完成状态。
+  void cacheVideoLocally(record, videoUrl)
+}
+
+async function cacheVideoLocally(record: SysTaskRecord, videoUrl: string) {
+  try {
+    const localPath = await downloadFile(videoUrl, 'videos', VIDEO_CACHE_DOWNLOAD_TIMEOUT_MS)
+    await extractVideoPoster(localPath)
+    await db.update(schema.sysTask)
+      .set({ localPath, updatedAt: now() })
+      .where(eq(schema.sysTask.id, record.id))
+
+    if (!record.storyboardId) return
+    const [storyboard] = await db.select().from(schema.storyboards)
+      .where(eq(schema.storyboards.id, record.storyboardId))
+    // 不覆盖缓存期间用户发起的新一轮视频生成。
+    if (storyboard?.videoUrl === videoUrl) {
+      await db.update(schema.storyboards)
+        .set({ videoUrl: localPath, updatedAt: now() })
+        .where(eq(schema.storyboards.id, record.storyboardId))
+    }
+    logTaskSuccess('VideoTask', 'cached-locally', { id: record.id, localPath, storyboardId: record.storyboardId })
+  } catch (err) {
+    logTaskWarn('VideoTask', 'local-cache-failed', { id: record.id, error: (err as Error).message })
   }
 }
 
@@ -552,6 +579,49 @@ async function normalizeVideoReferenceUrls(refs: string[] | null | undefined): P
     Array.from(new Set(refs.map((item) => String(item || '').trim()).filter(Boolean))).map((item) => normalizeVideoReferenceUrl(item)),
   )
   return normalized.filter((item): item is string => !!item)
+}
+
+/**
+ * 角色展示图仍保存为普通图片 URL；Seedance 素材库 URI 仅用于视频请求。
+ * 后端在任务处理时再次替换，避免页面未刷新而继续提交旧参考图。
+ */
+async function preferSeedanceCharacterAssets(
+  record: SysTaskRecord,
+  refs: string[] | null | undefined,
+  model: string | null | undefined,
+): Promise<string[] | null | undefined> {
+  if (!Array.isArray(refs) || !record.storyboardId || !/^(dreamina|doubao)-seedance-2-0/i.test(String(model || ''))) {
+    return refs
+  }
+
+  const characters = await db.select({
+    imageUrl: schema.characters.imageUrl,
+    localPath: schema.characters.localPath,
+    seedanceAssetUrl: schema.characters.seedanceAssetUrl,
+  })
+    .from(schema.storyboardCharacters)
+    .innerJoin(schema.characters, eq(schema.storyboardCharacters.characterId, schema.characters.id))
+    .where(eq(schema.storyboardCharacters.storyboardId, record.storyboardId))
+
+  const replacements = new Map<string, string>()
+  for (const character of characters) {
+    const assetUrl = String(character.seedanceAssetUrl || '').trim()
+    if (!/^asset:\/\//i.test(assetUrl)) continue
+    for (const source of [character.imageUrl, character.localPath]) {
+      const value = String(source || '').trim()
+      if (!value) continue
+      replacements.set(value, assetUrl)
+      replacements.set(value.startsWith('/') ? value.slice(1) : `/${value}`, assetUrl)
+    }
+  }
+
+  if (!replacements.size) return refs
+  const mapped = refs.map(ref => replacements.get(String(ref || '').trim()) || ref)
+  const replacedCount = mapped.filter((value, index) => value !== refs[index]).length
+  if (replacedCount) {
+    logTaskProgress('VideoTask', 'seedance-assets-applied', { id: record.id, storyboardId: record.storyboardId, replacedCount })
+  }
+  return mapped
 }
 
 /**

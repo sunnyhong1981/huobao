@@ -54,6 +54,7 @@ export const characters = sqliteTable('characters', {
   finalPrompt: text('final_prompt'),
   personality: text('personality'),
   imageUrl: text('image_url'),
+  seedanceAssetUrl: text('seedance_asset_url'),
   referenceImages: text('reference_images'),
   seedValue: text('seed_value'),
   sortOrder: integer('sort_order'),

@@ -60,7 +60,7 @@ app.put('/:id', async (c) => {
   const [existing] = await db.select().from(schema.characters).where(eq(schema.characters.id, id))
   if (!existing) return badRequest(c, '角色不存在')
   const updates: Record<string, any> = { updatedAt: now() }
-  for (const key of ['name', 'role', 'description', 'appearance', 'styling', 'imageUrl', 'localPath']) {
+  for (const key of ['name', 'role', 'description', 'appearance', 'styling', 'imageUrl', 'seedanceAssetUrl', 'localPath']) {
     const snakeKey = key.replace(/[A-Z]/g, m => '_' + m.toLowerCase())
     if (snakeKey in body) updates[key] = body[snakeKey]
     else if (key in body) updates[key] = body[key]
