@@ -208,16 +208,6 @@ export async function mergeEpisodeVideos(episodeId: number, dramaId: number, sto
 }
 
 async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
-  // 生成 concat 列表文件
-  const listDir = path.join(STORAGE_ROOT, 'temp')
-  fs.mkdirSync(listDir, { recursive: true })
-  const listPath = path.join(listDir, `${uuid()}.txt`)
-
-  const listContent = videos
-    .map(v => `file '${toAbsPath(v)}'`)
-    .join('\n')
-  fs.writeFileSync(listPath, listContent, 'utf-8')
-
   // 输出文件
   const outputDir = path.join(STORAGE_ROOT, 'merged')
   fs.mkdirSync(outputDir, { recursive: true })
@@ -226,13 +216,31 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
   const subtitlePath = toAbsPath(subtitleAssRelativePath(episodeId))
   const hasSubtitles = fs.existsSync(subtitlePath)
 
+  // 生成视频常来自不同服务，音频采样率和时间戳并不一致。concat demuxer 会在
+  // 这种情况下只保留开头的一小段音频，所以必须先将每段标准化再用 concat filter 合并。
+  const filters: string[] = []
+  for (let index = 0; index < videos.length; index++) {
+    filters.push(
+      `[${index}:v]scale=864:496,setsar=1,fps=24[v${index}]`,
+      `[${index}:a]aresample=48000,aformat=channel_layouts=stereo[a${index}]`,
+    )
+  }
+  const concatInputs = videos.map((_, index) => `[v${index}][a${index}]`).join('')
+  filters.push(`${concatInputs}concat=n=${videos.length}:v=1:a=1[mergedv][mergeda]`)
+  if (hasSubtitles) {
+    filters.push(`[mergedv]ass=filename=${subtitlePath}:fontsdir=${path.join(DATA_ROOT, 'fonts')}[videoout]`)
+  } else {
+    filters.push('[mergedv]null[videoout]')
+  }
+
   await new Promise<void>((resolve, reject) => {
-    ffmpeg()
-      .input(listPath)
-      .inputOptions(['-f', 'concat', '-safe', '0'])
+    const command = ffmpeg()
+    for (const video of videos) command.input(toAbsPath(video))
+    command
+      .complexFilter(filters)
       .outputOptions([
-        '-fflags', '+genpts',
-        ...(hasSubtitles ? ['-vf', `ass=filename=${subtitlePath}:fontsdir=${path.join(DATA_ROOT, 'fonts')}`] : []),
+        '-map', '[videoout]',
+        '-map', '[mergeda]',
         '-c:v', 'libx264',
         '-preset', 'medium',
         '-crf', '23',
@@ -247,9 +255,6 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
       .run()
 
   })
-
-  // 清理临时文件
-  fs.unlinkSync(listPath)
 
   // 获取时长
   const duration = await getVideoDuration(outputPath)
