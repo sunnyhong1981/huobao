@@ -21,8 +21,8 @@ import { joinProviderUrl } from './url'
  * Seedance 2.0+ 系列模型。官方端点使用 doubao-*，部分兼容网关使用
  * dreamina-*；两者均按原模型名透传给上游。
  */
-const SEEDANCE2_MODEL_PREFIXES = ['doubao-seedance-2-0', 'dreamina-seedance-2-0']
-const DREAMINA_MODEL_PREFIX = 'dreamina-seedance-2-0'
+const SEEDANCE2_MODEL_PREFIXES = ['doubao-seedance-2-0', 'dreamina-seedance-2-0', 'dreamina-seedance-2-5']
+const DREAMINA_MODEL_PREFIXES = ['dreamina-seedance-2-0', 'dreamina-seedance-2-5']
 const DEFAULT_MODEL = 'doubao-seedance-2-0-mini-260615'
 
 /** 多模态参考素材上限：图片 9、视频 3、音频 3 */
@@ -77,7 +77,7 @@ export class VolcEngineVideoAdapter implements VideoProviderAdapter {
     const duration = this.normalizeDuration(record.duration)
     const resolution = record.resolution === '480p' ? '480p' : '720p'
     const ratio = record.aspectRatio || 'adaptive'
-    const usesDreaminaGateway = model.startsWith(DREAMINA_MODEL_PREFIX)
+    const usesDreaminaGateway = DREAMINA_MODEL_PREFIXES.some(prefix => model.startsWith(prefix))
 
     // New API-compatible gateways expose Dreamina through /v1/video/generations
     // rather than Volcengine's native /api/v3 endpoint. Keep their documented
@@ -138,7 +138,7 @@ export class VolcEngineVideoAdapter implements VideoProviderAdapter {
 
   buildPollRequest(config: AIConfig, taskId: string): ProviderRequest {
     const model = config.model || DEFAULT_MODEL
-    if (model.startsWith(DREAMINA_MODEL_PREFIX)) {
+    if (DREAMINA_MODEL_PREFIXES.some(prefix => model.startsWith(prefix))) {
       return {
         url: joinProviderUrl(config.baseUrl, '/v1', `/video/generations/${encodeURIComponent(taskId)}`),
         method: 'GET',

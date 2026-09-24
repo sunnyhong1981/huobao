@@ -127,6 +127,10 @@ export const uploadAPI = {
   video: (f: File) => uploadReq<{ url: string; path: string }>('/upload/video', f),
   audio: (f: File) => uploadReq<{ url: string; path: string }>('/upload/audio', f),
 }
+
+export const assetLibraryAPI = {
+  uploadCharacter: (id: number) => api.post<{ asset_id: string; asset_url: string }>(`/asset-library/characters/${id}/upload`),
+}
 export const mergeAPI = {
   merge: (epId: number, storyboardIds?: number[]) => api.post(`/merge/episodes/${epId}/merge`, storyboardIds?.length ? { storyboard_ids: storyboardIds } : {}),
   status: (epId: number) => api.get(`/merge/episodes/${epId}/merge`),

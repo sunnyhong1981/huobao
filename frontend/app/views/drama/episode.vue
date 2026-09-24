@@ -355,6 +355,10 @@
                         <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         {{ t('episode.asset.upload') }}
                       </button>
+                      <button class="btn btn-sm" :disabled="(!c.image_url && !c.imageUrl) || isUploadingToAssetLibrary(c.id)" @click.stop="uploadCharacterToAssetLibrary(c)">
+                        <Loader2 v-if="isUploadingToAssetLibrary(c.id)" :size="11" class="animate-spin" />
+                        <span v-else>素材库</span>
+                      </button>
                     </div>
                   </div>
                   <div class="asset-final-prompt" :title="c.final_prompt || c.finalPrompt || ''">
@@ -1459,7 +1463,7 @@ import {
   Users, FileText, FolderKanban, Clapperboard, Download, Loader2,
   Plus, X, ListTodo, CircleHelp,
 } from 'lucide-vue-next'
-import { api, dramaAPI, episodeAPI, storyboardAPI, characterAPI, sceneAPI, propAPI, taskAPI, mergeAPI, aiConfigAPI, uploadAPI } from '~/composables/useApi'
+import { api, dramaAPI, episodeAPI, storyboardAPI, characterAPI, sceneAPI, propAPI, taskAPI, mergeAPI, aiConfigAPI, uploadAPI, assetLibraryAPI } from '~/composables/useApi'
 import { startTour, autoTour } from '~/composables/useTour'
 import { useAgent } from '~/composables/useAgent'
 import { toastError, mapError, MODERATION_RE } from '~/composables/useToast'
@@ -1649,6 +1653,7 @@ function toggleSidebar() {
 function chatModelOverride() { return bareModelName(chatModel.value) || undefined }
 function chatConfigId() { return ownerConfigId(textModelOptions.value, chatModel.value) }
 const pendingCharImageIds = ref([])
+const assetLibraryUploadIds = ref([])
 const pendingSceneImageIds = ref([])
 const pendingPropImageIds = ref([])
 const pendingVideoIds = ref([])
@@ -1695,6 +1700,31 @@ const savingAssetDetail = ref(false)
 
 function isPendingCharImage(id) {
   return pendingCharImageIds.value.includes(id)
+}
+
+function isUploadingToAssetLibrary(id) {
+  return assetLibraryUploadIds.value.includes(id)
+}
+
+async function uploadCharacterToAssetLibrary(character) {
+  if (!character?.id || isUploadingToAssetLibrary(character.id)) return
+  assetLibraryUploadIds.value.push(character.id)
+  try {
+    const uploaded = await assetLibraryAPI.uploadCharacter(character.id)
+    const patch = { seedance_asset_url: uploaded.asset_url, seedanceAssetUrl: uploaded.asset_url }
+    Object.assign(character, patch)
+    const target = chars.value.find(item => item.id === character.id)
+    if (target) Object.assign(target, patch)
+    if (assetDetail.value.open && assetDetail.value.type === 'character' && assetDetail.value.item?.id === character.id) {
+      Object.assign(assetDetail.value.item, patch)
+      assetDetailDraft.value.seedanceAssetUrl = uploaded.asset_url
+    }
+    toast.success(`已上传至素材库：${uploaded.asset_url}`)
+  } catch (e) {
+    toastError(e)
+  } finally {
+    assetLibraryUploadIds.value = assetLibraryUploadIds.value.filter(id => id !== character.id)
+  }
 }
 
 function openImageViewer(src, title = '') {

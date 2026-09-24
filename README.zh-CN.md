@@ -126,8 +126,13 @@ data/       — 生成资源文件与 SQLite 数据库
 | `FRONTEND_DIST` | `frontend/dist` | 前端静态产物目录 |
 | `FFMPEG_BIN` / `FFPROBE_BIN` | npm 内置二进制 | 自定义 ffmpeg/ffprobe 可执行文件路径 |
 | `PUBLIC_BASE_URL` | — | Seedance 引用本地参考资源时所需的公网地址（服务器部署用） |
+| `NEW_API_ASSET_BASE_URL` | — | new-api 素材库地址，例如 `https://cn.chrouter.com` |
+| `NEW_API_ASSET_TOKEN` | — | 用于上传素材库的 new-api 令牌，仅由后端使用 |
+| `NEW_API_ASSET_GROUP_ID` | — | new-api 素材库目标分组 ID |
 
 > **说明**：AI 服务的 API Key、Base URL 和模型参数全部在 Web 界面的「设置」页配置并入库，不在配置文件/环境变量中维护。
+
+> 配置上述 `NEW_API_ASSET_*` 后，角色卡片可将已生成或本地上传的角色图上传到 new-api 素材库。成功后角色会保存 `asset://` 引用，Seedance 视频生成会自动使用该素材引用。
 
 ### 📥 安装依赖
 
