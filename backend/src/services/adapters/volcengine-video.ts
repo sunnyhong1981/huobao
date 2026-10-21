@@ -21,8 +21,21 @@ import { joinProviderUrl } from './url'
  * Seedance 2.0+ 系列模型。官方端点使用 doubao-*，部分兼容网关使用
  * dreamina-*；两者均按原模型名透传给上游。
  */
-const SEEDANCE2_MODEL_PREFIXES = ['doubao-seedance-2-0', 'dreamina-seedance-2-0', 'dreamina-seedance-2-5']
-const DREAMINA_MODEL_PREFIXES = ['dreamina-seedance-2-0', 'dreamina-seedance-2-5']
+const SEEDANCE2_MODEL_PREFIXES = [
+  'doubao-seedance-2-0',
+  'dreamina-seedance-2-0',
+  'dreamina-seedance-2-5',
+  'seedreamina-seedance-2-0',
+  'seedreamina-seedance-2-5',
+]
+// Dreamina-compatible gateways, including the Seedreamina alias, use the
+// OpenAI-compatible /v1/video/generations endpoints.
+const DREAMINA_MODEL_PREFIXES = [
+  'dreamina-seedance-2-0',
+  'dreamina-seedance-2-5',
+  'seedreamina-seedance-2-0',
+  'seedreamina-seedance-2-5',
+]
 const DEFAULT_MODEL = 'doubao-seedance-2-0-mini-260615'
 
 /** 多模态参考素材上限：图片 9、视频 3、音频 3 */
@@ -172,7 +185,7 @@ export class VolcEngineVideoAdapter implements VideoProviderAdapter {
         videoUrl,
       }
     }
-    if (status === 'failed' || status === 'fail' || status === 'error') {
+    if (status === 'failed' || status === 'failure' || status === 'fail' || status === 'error') {
       // 上游 error 可能是对象 { code, message }（如 OutputVideoSensitiveContentDetected），规范成字符串
       const err = task.fail_reason || task.error || result?.error
       const msg = typeof err === 'string' ? err : (err?.message || JSON.stringify(err) || 'Video generation failed')

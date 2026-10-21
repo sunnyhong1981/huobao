@@ -257,232 +257,27 @@
               <span class="dim" style="font-size:12px">{{ t('episode.prod.assets') }}</span>
               <span class="tag mono">{{ t('episode.prod.readyCount', { ready: assetReadyCount, total: assetTotalCount }) }}</span>
               <div class="ml-auto flex gap-1 asset-bar-actions">
-                <button
-                  v-for="et in EXTRACT_TARGETS"
-                  :key="et.key"
-                  class="btn btn-sm asset-btn-extract"
-                  :disabled="isExtracting(et.key)"
-                  @click="doExtract(et.key)"
-                >
+                <button class="btn btn-sm" @click="manageProjectAsset()"><FolderKanban :size="12" />项目素材库</button>
+                <button v-for="et in EXTRACT_TARGETS" :key="et.key" class="btn btn-sm asset-btn-extract" :disabled="isExtracting(et.key)" @click="doExtract(et.key)">
                   <Loader2 v-if="isExtracting(et.key)" :size="11" class="animate-spin" />
-                  <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                   {{ (et.key === 'characters' ? chars.length : et.key === 'scenes' ? scenes.length : propItems.length) ? t('episode.prod.reextract', { type: et.label }) : t('episode.prod.extract', { type: et.label }) }}
-                </button>
-                <span class="asset-bar-divider" />
-                <button class="btn btn-sm asset-btn-batch" @click="batchCharImages">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  {{ t('episode.prod.batchChar') }}
-                </button>
-                <button class="btn btn-sm asset-btn-batch" @click="batchSceneImages">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  {{ t('episode.prod.batchScene') }}
-                </button>
-                <button class="btn btn-sm asset-btn-batch" @click="batchPropImages">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  {{ t('episode.prod.batchProp') }}
                 </button>
               </div>
             </div>
             <div v-if="extractingTargets.length && !chars.length && !scenes.length && !propItems.length" class="step-loading">
-              <Loader2 :size="24" class="animate-spin" style="color:var(--accent)" />
+              <Loader2 :size="24" class="animate-spin" />
               <div class="loading-text">{{ t('episode.prod.extractingTypes', { types: extractingLabels }) }}</div>
             </div>
-            <div v-else-if="!chars.length && !scenes.length && !propItems.length" class="step-empty asset-empty-state">
-              <div class="empty-visual">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              </div>
-              <div class="empty-title">{{ t('episode.prod.emptyTitle') }}</div>
-              <div class="empty-desc">{{ t('episode.prod.emptyDesc') }}</div>
-              <button class="btn btn-primary" :disabled="!!extractingTargets.length" @click="doExtractAll">
-                <Loader2 v-if="extractingTargets.length" :size="13" class="animate-spin" />
-                <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                {{ extractingTargets.length ? t('episode.prod.extractingTypesDots', { types: extractingLabels }) : t('episode.prod.startExtract') }}
-              </button>
-            </div>
-            <template v-else>
-            <div class="asset-section-title">
-              {{ t('common.role') }}
-              <button class="asset-add-btn" @click="openAssetCreate('character')"><Plus :size="11" /> {{ t('common.add') }}</button>
-            </div>
-            <template v-if="visualChars.length">
-            <div class="character-asset-grid">
-              <article
-                v-for="c in visualChars"
-                :key="c.id"
-                class="card character-asset-card"
-                tabindex="0"
-                role="button"
-                @click="openAssetDetail('character', c)"
-                @keydown.enter.prevent="openAssetDetail('character', c)"
-                @keydown.space.prevent="openAssetDetail('character', c)"
-              >
-                <button class="asset-del-btn" :title="t('episode.asset.delChar')" @click.stop="askDeleteAsset('character', c)"><X :size="11" /></button>
-                <div class="character-asset-main">
-                  <div class="character-asset-overview"><div class="character-portrait">
-                      <img
-                        v-if="c.image_url || c.imageUrl"
-                        :src="thumbOf(assetImageSrc(c))"
-                        class="previewable-image"
-                        loading="lazy"
-                        @error="thumbFallback($event, assetImageSrc(c))"
-                        @click.stop="openImageViewer(assetImageSrc(c), t('episode.asset.charImageTitle', { name: c.name }))"
-                      />
-                      <div v-else class="character-portrait-empty">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                      </div>
-                      <span class="asset-cover-badge" :class="(c.image_url || c.imageUrl) ? 'is-ready' : (isPendingCharImage(c.id) ? 'is-pending' : '')">
-                        {{ (c.image_url || c.imageUrl) ? t('episode.asset.portraitReady') : (isPendingCharImage(c.id) ? t('episode.asset.portraitPending') : t('episode.asset.portraitTodo')) }}
-                      </span>
-                    </div>
-
-                    <div class="character-asset-head">
-                      <div class="character-title-block">
-                        <div class="character-name-row">
-                          <strong class="character-name">{{ c.name }}</strong>
-                          <span class="tag">{{ c.role || t('common.role') }}</span>
-                        </div>
-                        <div class="character-visual-summary" :title="characterVisualSummary(c)">
-                          <span>{{ t('episode.asset.appearance') }}{{ characterAppearanceValue(c) }}</span>
-                          <span>{{ t('episode.asset.styling') }}{{ characterStylingValue(c) }}</span>
-                        </div>
-                      </div>
-                      <button class="btn btn-sm character-gen-btn" :disabled="isPendingCharImage(c.id)" @click.stop="genCharImg(c.id)">
-                        <Loader2 v-if="isPendingCharImage(c.id)" :size="11" class="animate-spin" />
-                        {{ (c.image_url || c.imageUrl) ? t('episode.asset.regen') : (isPendingCharImage(c.id) ? t('episode.asset.generating') : t('episode.asset.generate')) }}
-                      </button>
-                      <button class="btn btn-sm" :title="t('episode.asset.uploadCharImage')" :disabled="isUploadingAsset('character', c.id)" @click.stop="uploadAssetImage('character', c.id)">
-                        <Loader2 v-if="isUploadingAsset('character', c.id)" :size="11" class="animate-spin" />
-                        <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        {{ t('episode.asset.upload') }}
-                      </button>
-                      <button class="btn btn-sm" :disabled="(!c.image_url && !c.imageUrl) || isUploadingToAssetLibrary(c.id)" @click.stop="uploadCharacterToAssetLibrary(c)">
-                        <Loader2 v-if="isUploadingToAssetLibrary(c.id)" :size="11" class="animate-spin" />
-                        <span v-else>素材库</span>
-                      </button>
-                    </div>
-                  </div>
-                  <div class="asset-final-prompt" :title="c.final_prompt || c.finalPrompt || ''">
-                    <span class="afp-label">{{ t('episode.asset.finalPromptTurnaround') }}</span>
-                    <span :class="['afp-text', !(c.final_prompt || c.finalPrompt) && 'dim']">{{ c.final_prompt || c.finalPrompt || t('episode.asset.finalPromptAutoTurnaround') }}</span>
-                  </div>
-                </div>
-              </article>
-            </div>
-            </template>
-
-            <div class="asset-section-title">
-              {{ t('common.scene') }}
-              <button class="asset-add-btn" @click="openAssetCreate('scene')"><Plus :size="11" /> {{ t('common.add') }}</button>
-            </div>
-            <template v-if="scenes.length">
-            <div class="asset-grid">
-              <div
-                v-for="s in scenes"
-                :key="s.id"
-                class="card asset-card asset-click-card"
-                tabindex="0"
-                role="button"
-                @click="openAssetDetail('scene', s)"
-                @keydown.enter.prevent="openAssetDetail('scene', s)"
-                @keydown.space.prevent="openAssetDetail('scene', s)"
-              >
-                <button class="asset-del-btn" :title="t('episode.asset.delScene')" @click.stop="askDeleteAsset('scene', s)"><X :size="11" /></button>
-                <div class="asset-cover wide">
-                  <img
-                    v-if="s.image_url || s.imageUrl"
-                    :src="thumbOf(assetImageSrc(s))"
-                    class="previewable-image"
-                    loading="lazy"
-                    @error="thumbFallback($event, assetImageSrc(s))"
-                    @click.stop="openImageViewer(assetImageSrc(s), t('episode.asset.sceneImageTitle', { name: s.location }))"
-                  />
-                  <div v-else class="asset-cover-empty">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                  </div>
-                  <span class="asset-cover-badge" :class="(s.image_url || s.imageUrl) ? 'is-ready' : (isPendingSceneImage(s.id) ? 'is-pending' : '')">{{ (s.image_url || s.imageUrl) ? t('episode.asset.ready') : (isPendingSceneImage(s.id) ? t('episode.asset.generating') : t('episode.asset.todo')) }}</span>
-                </div>
-                <div class="asset-body">
-                  <div class="asset-name" :title="s.location">{{ s.location }}</div>
-                  <div class="asset-meta asset-desc dim" :title="sceneDescriptionValue(s)">{{ sceneDescriptionValue(s) }}</div>
-                  <div v-if="sceneLightingValue(s)" class="asset-meta asset-light dim" :title="sceneLightingValue(s)">{{ t('episode.asset.lighting') }}{{ sceneLightingValue(s) }}</div>
-                  <div class="asset-meta asset-final" :class="{ dim: !(s.final_prompt || s.finalPrompt) }" :title="s.final_prompt || s.finalPrompt || ''">
-                    <span class="afp-label">{{ t('episode.asset.finalPromptFixed') }}</span>
-                    {{ s.final_prompt || s.finalPrompt || t('episode.asset.finalPromptAutoFixed') }}
-                  </div>
-                </div>
-                <div class="asset-foot">
-                  <span :class="['dot', (s.image_url || s.imageUrl) && 'ok', isPendingSceneImage(s.id) && 'pending']" />
-                  <button class="btn btn-sm ml-auto" :title="t('episode.asset.uploadSceneImage')" :disabled="isUploadingAsset('scene', s.id)" @click.stop="uploadAssetImage('scene', s.id)">
-                    <Loader2 v-if="isUploadingAsset('scene', s.id)" :size="11" class="animate-spin" />
-                    <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    {{ t('episode.asset.upload') }}
-                  </button>
-                  <button class="btn btn-sm" :disabled="isPendingSceneImage(s.id)" @click.stop="genSceneImg(s.id)">
-                    <Loader2 v-if="isPendingSceneImage(s.id)" :size="11" class="animate-spin" />
-                    {{ (s.image_url || s.imageUrl) ? t('episode.asset.regen') : (isPendingSceneImage(s.id) ? t('episode.asset.generating') : t('episode.asset.generate')) }}
-                  </button>
-                </div>
-              </div>
-            </div>
-            </template>
-
-            <div class="asset-section-title">
-              {{ t('common.prop') }}
-              <button class="asset-add-btn" @click="openAssetCreate('prop')"><Plus :size="11" /> {{ t('common.add') }}</button>
-            </div>
-            <div v-if="propItems.length" class="asset-grid">
-              <div
-                v-for="p in propItems"
-                :key="p.id"
-                class="card asset-card asset-click-card prop-card"
-                tabindex="0"
-                role="button"
-                @click="openAssetDetail('prop', p)"
-                @keydown.enter.prevent="openAssetDetail('prop', p)"
-                @keydown.space.prevent="openAssetDetail('prop', p)"
-              >
-                <button class="asset-del-btn" :title="t('episode.asset.delProp')" @click.stop="askDeleteAsset('prop', p)"><X :size="11" /></button>
-                <div class="asset-cover wide">
-                  <img
-                    v-if="p.image_url || p.imageUrl"
-                    :src="thumbOf(assetImageSrc(p))"
-                    class="previewable-image"
-                    loading="lazy"
-                    @error="thumbFallback($event, assetImageSrc(p))"
-                    @click.stop="openImageViewer(assetImageSrc(p), t('episode.asset.propImageTitle', { name: p.name }))"
-                  />
-                  <div v-else class="asset-cover-empty">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                  </div>
-                  <span class="asset-cover-badge" :class="(p.image_url || p.imageUrl) ? 'is-ready' : (isPendingPropImage(p.id) ? 'is-pending' : '')">{{ (p.image_url || p.imageUrl) ? t('episode.asset.ready') : (isPendingPropImage(p.id) ? t('episode.asset.generating') : t('episode.asset.todo')) }}</span>
-                </div>
-                <div class="asset-body">
-                  <div class="prop-name-row">
-                    <span class="asset-name" :title="p.name">{{ p.name }}</span>
-                    <span class="tag">{{ p.type || t('common.prop') }}</span>
-                  </div>
-                  <div class="asset-meta asset-desc dim" :title="p.description || ''">{{ p.description || t('episode.asset.noDescription') }}</div>
-                  <div class="asset-meta asset-final" :class="{ dim: !(p.final_prompt || p.finalPrompt) }" :title="p.final_prompt || p.finalPrompt || ''">
-                    <span class="afp-label">{{ t('episode.asset.finalPromptWhiteBg') }}</span>
-                    {{ p.final_prompt || p.finalPrompt || t('episode.asset.finalPromptAutoWhiteBg') }}
-                  </div>
-                </div>
-                <div class="asset-foot">
-                  <span :class="['dot', (p.image_url || p.imageUrl) && 'ok', isPendingPropImage(p.id) && 'pending']" />
-                  <button class="btn btn-sm ml-auto" :title="t('episode.asset.uploadPropImage')" :disabled="isUploadingAsset('prop', p.id)" @click.stop="uploadAssetImage('prop', p.id)">
-                    <Loader2 v-if="isUploadingAsset('prop', p.id)" :size="11" class="animate-spin" />
-                    <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    {{ t('episode.asset.upload') }}
-                  </button>
-                  <button class="btn btn-sm" :disabled="isPendingPropImage(p.id)" @click.stop="genPropImg(p.id)">
-                    <Loader2 v-if="isPendingPropImage(p.id)" :size="11" class="animate-spin" />
-                    {{ (p.image_url || p.imageUrl) ? t('episode.asset.regen') : (isPendingPropImage(p.id) ? t('episode.asset.generating') : t('episode.asset.generate')) }}
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div v-else class="asset-props-empty">{{ t('episode.asset.propsEmpty') }}</div>
-            </template>
+            <EpisodeProjectAssets
+              :characters="visualChars"
+              :scenes="scenes"
+              :props="propItems"
+              :media-url="mediaUrl"
+              @select="kind => projectAssetPicker = { open: true, kind }"
+              @remove="askDeleteAsset"
+              @preview="openImageViewer"
+              @manage="manageProjectAsset"
+            />
           </div>
 
           <!-- Sub: Video Production（分镜拆分 + 视频生成 合并） -->
@@ -553,9 +348,9 @@
                   :class="['video-task-row', 'is-' + videoTaskState(task.storyboard), { active: !videoSelectMode && selectedSb?.id === task.storyboard.id, 'is-selected': videoSelectMode && isVideoSbSelected(task.id) }]"
                   role="button"
                   tabindex="0"
-                  @click="onVideoTaskRowClick(task.storyboard)"
-                  @keydown.enter.prevent="onVideoTaskRowClick(task.storyboard)"
-                  @keydown.space.prevent="onVideoTaskRowClick(task.storyboard)"
+                  @click="onVideoTaskRowClick(task)"
+                  @keydown.enter.prevent="onVideoTaskRowClick(task)"
+                  @keydown.space.prevent="onVideoTaskRowClick(task)"
                 >
                   <div class="video-task-preview">
                     <span
@@ -594,19 +389,24 @@
                         <span class="video-task-loc truncate">{{ task.meta }}</span>
                       </template>
                     </div>
-                    <div v-if="task.error" class="video-task-error" :title="task.error">
-                      {{ mapError(task.error) }}
+                    <div v-if="task.error" class="video-task-error" :title="videoFailureMessage(task.error)">
+                      {{ videoFailureMessage(task.error) }}
                       <div v-if="videoModerationHint(task.error)" class="video-task-error-hint">{{ videoModerationHint(task.error) }}</div>
                     </div>
                   </div>
-                  <button
-                    class="btn btn-icon btn-sm video-task-action"
-                    :title="videoTaskActionLabel(task.storyboard)"
-                    :disabled="videoTaskState(task.storyboard) === 'pending'"
-                    @click.stop="genVid(task.storyboard)"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                  </button>
+                  <div class="video-task-actions">
+                    <button
+                      class="btn btn-icon btn-sm video-task-action"
+                      :title="videoTaskActionLabel(task.storyboard)"
+                      :disabled="videoTaskState(task.storyboard) === 'pending'"
+                      @click.stop="genVid(task.storyboard)"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                    </button>
+                    <button class="btn btn-icon btn-sm video-task-delete" :title="t('episode.vid.deleteShot')" @click.stop="askDeleteStoryboard(task.storyboard)">
+                      <Trash2 :size="13" />
+                    </button>
+                  </div>
                 </div>
                 </div>
               </section>
@@ -705,6 +505,15 @@
                   <span v-if="selectedSb.duration" class="video-player-sub">{{ selectedSb.duration }}s</span>
                 </div>
                 <button
+                  v-if="previewVideoUrl || hasVid(selectedSb)"
+                  type="button"
+                  class="btn btn-sm"
+                  title="为当前视频替换配音"
+                  @click="openVideoRedub"
+                >
+                  <Mic :size="13" />重新配音
+                </button>
+                <button
                   v-if="previewVideoUrl"
                   class="btn btn-sm btn-primary"
                   @click="setAsMainVideo"
@@ -793,6 +602,34 @@
                       </button>
                     </div>
                     <div v-else class="video-bound-refs-empty">{{ t('episode.inspector.noBoundRefs') }}</div>
+                  </section>
+
+                  <section class="video-inspector-section reference-audio-section">
+                    <div class="video-inspector-prompt-head">
+                      <span class="video-inspector-label">{{ t('episode.inspector.audioN', { n: storyboardReferenceAudioUrls(selectedSb).length }) }}</span>
+                      <button
+                        type="button"
+                        class="btn btn-sm"
+                        :disabled="isUploadingReferenceAudio(selectedSb?.id)"
+                        @click="projectAudioPickerOpen = true"
+                      >
+                        <Loader2 v-if="isUploadingReferenceAudio(selectedSb?.id)" :size="12" class="animate-spin" />
+                        <Link2 v-else :size="12" />
+                        从项目选择
+                      </button>
+                    </div>
+                    <div v-if="storyboardReferenceAudioUrls(selectedSb).length" class="reference-audio-list">
+                      <div v-for="url in storyboardReferenceAudioUrls(selectedSb)" :key="url" class="reference-audio-item">
+                        <Music2 :size="14" aria-hidden="true" />
+                        <audio :src="mediaUrl(url)" controls preload="metadata" />
+                        <span class="reference-audio-name" :title="referenceAudioFilename(url)">{{ referenceAudioFilename(url) }}</span>
+                        <button type="button" class="btn btn-icon btn-sm reference-audio-remove" :title="t('episode.inspector.removeRefAudio')" @click="removeStoryboardReferenceAudio(selectedSb, url)">
+                          <X :size="13" />
+                        </button>
+                      </div>
+                    </div>
+                    <div v-else class="video-bound-refs-empty">{{ t('episode.inspector.noRefAudio') }}</div>
+                    <p class="reference-audio-hint">{{ t('episode.inspector.refAudioHint') }}</p>
                   </section>
                 </div>
 
@@ -899,8 +736,8 @@
                       playsinline
                       tabindex="-1"
                     />
-                    <div v-else :class="['merge-card-pending', m.status === 'failed' && 'is-failed']" :title="m.status === 'failed' ? m.error_msg : null">
-                      {{ m.status === 'failed' ? mapError(m.error_msg, { fallback: 'episode.export.mergeFailed' }) : t('episode.export.merging') }}
+                    <div v-else :class="['merge-card-pending', m.status === 'failed' && 'is-failed']" :title="m.status === 'failed' ? mergeFailureMessage(m.error_msg) : null">
+                      {{ m.status === 'failed' ? t('episode.export.mergeFailed') : t('episode.export.merging') }}
                     </div>
                     <span v-if="m.status === 'completed' && m.merged_url" class="merge-card-play">
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
@@ -919,6 +756,9 @@
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                       {{ t('common.download') }}
                     </a>
+                  </div>
+                  <div v-if="m.status === 'failed' && m.error_msg" class="merge-card-error" :title="mergeFailureMessage(m.error_msg)">
+                    {{ mergeFailureMessage(m.error_msg) }}
                   </div>
                 </div>
               </div>
@@ -1079,8 +919,8 @@
                   <span class="video-task-sep">·</span>
                   <span>#{{ row.id }}</span>
                 </div>
-                <div v-if="row.errorMsg" class="video-task-error" :title="row.errorMsg">
-                  {{ mapError(row.errorMsg) }}
+                <div v-if="row.errorMsg" class="video-task-error" :title="row.kind === 'merge' ? mergeFailureMessage(row.errorMsg) : row.kind === 'video' ? videoFailureMessage(row.errorMsg) : row.errorMsg">
+                  {{ row.kind === 'merge' ? mergeFailureMessage(row.errorMsg) : row.kind === 'video' ? videoFailureMessage(row.errorMsg) : mapError(row.errorMsg) }}
                   <div v-if="row.kind === 'video' && videoModerationHint(row.errorMsg)" class="video-task-error-hint">{{ videoModerationHint(row.errorMsg) }}</div>
                 </div>
               </div>
@@ -1093,230 +933,6 @@
         </aside>
       </div>
 
-      <div v-if="assetDetail.open && assetDetail.item" class="overlay asset-detail-overlay" @click.self="closeAssetDetail">
-        <section
-          class="dialog asset-detail-dialog"
-          role="dialog"
-          aria-modal="true"
-          :aria-label="t('episode.asset.detailTitle', { type: assetTypeLabel(assetDetail.type) })"
-        >
-          <header class="dialog-head asset-detail-head">
-            <div class="asset-detail-title-block">
-              <span class="asset-detail-kicker">{{ assetTypeLabel(assetDetail.type) }}</span>
-              <h2 class="asset-detail-title">{{ assetDetailTitle(assetDetail) }}</h2>
-            </div>
-            <div class="asset-detail-head-actions">
-              <span class="tag" v-if="assetDetail.type === 'character'">{{ assetDetail.item.role || t('common.role') }}</span>
-              <span class="tag" v-else-if="assetDetail.type === 'prop'">{{ assetDetail.item.type || t('common.prop') }}</span>
-              <span class="tag" v-else>{{ assetDetail.item.time || t('episode.asset.noTime') }}</span>
-              <button class="btn btn-ghost btn-icon" @click="closeAssetDetail">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-          </header>
-
-          <div class="dialog-body asset-detail-body">
-            <div class="asset-detail-shell">
-              <aside class="asset-detail-preview-panel">
-                <div class="asset-detail-section-title">
-                  <span>{{ t('episode.asset.visualPreview') }}</span>
-                  <span :class="['asset-detail-state', assetImageSrc(assetDetail.item) ? 'is-ready' : '']">
-                    {{ assetImageSrc(assetDetail.item) ? t('episode.asset.ready') : t('episode.asset.todo') }}
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  class="asset-detail-media-frame"
-                  :disabled="!assetImageSrc(assetDetail.item)"
-                  @click.stop="openImageViewer(assetImageSrc(assetDetail.item), assetDetailImageTitle(assetDetail))"
-                >
-                  <img
-                    v-if="assetImageSrc(assetDetail.item)"
-                    :src="thumbOf(assetImageSrc(assetDetail.item))"
-                    class="previewable-image"
-                    @error="thumbFallback($event, assetImageSrc(assetDetail.item))"
-                  />
-                  <span v-else class="asset-detail-media-empty">
-                    <svg v-if="assetDetail.type === 'character'" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    <svg v-else-if="assetDetail.type === 'prop'" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                    <svg v-else width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                  </span>
-                </button>
-
-                <div class="asset-detail-meta-row">
-                  <div class="asset-detail-meta-item">
-                    <span>{{ t('episode.asset.kindLabel') }}</span>
-                    <strong>{{ assetDetail.type === 'character' ? t('episode.asset.charPortrait') : assetDetail.type === 'prop' ? t('common.prop') : t('episode.asset.sceneImage') }}</strong>
-                  </div>
-                  <div class="asset-detail-meta-item">
-                    <span>{{ assetDetail.type === 'character' ? t('episode.asset.roleLabel') : assetDetail.type === 'prop' ? t('episode.asset.propTypeLabel') : t('episode.asset.timeLabel') }}</span>
-                    <strong>{{ assetDetail.type === 'character' ? (assetDetail.item.role || t('common.role')) : assetDetail.type === 'prop' ? (assetDetail.item.type || t('common.prop')) : (assetDetail.item.time || t('episode.asset.noTime')) }}</strong>
-                  </div>
-                </div>
-              </aside>
-
-              <section class="asset-detail-editor-panel">
-                <div class="asset-detail-section-title">
-                  <span>{{ t('episode.asset.editInfo') }}</span>
-                  <span class="dim">{{ assetDetail.type === 'character' ? t('episode.asset.editHintChar') : assetDetail.type === 'prop' ? t('episode.asset.editHintProp') : t('episode.asset.editHintScene') }}</span>
-                </div>
-
-                <div v-if="assetDetail.type === 'prop'" class="asset-detail-edit-grid asset-detail-edit-grid--prop">
-                  <label class="asset-detail-edit-field">
-                    <span>{{ t('episode.asset.appearanceOfObject') }}</span>
-                    <textarea
-                      v-model="assetDetailDraft.description"
-                      class="textarea asset-detail-textarea"
-                      rows="6"
-                      :placeholder="t('episode.asset.appearancePlaceholder')"
-                    />
-                  </label>
-                </div>
-
-                <div v-else :class="['asset-detail-edit-grid', `asset-detail-edit-grid--${assetDetail.type}`]">
-                  <label v-if="assetDetail.type === 'character'" class="asset-detail-edit-field">
-                    <span>{{ t('episode.asset.appearanceField') }}</span>
-                    <textarea
-                      v-model="assetDetailDraft.appearance"
-                      class="textarea asset-detail-textarea"
-                      rows="6"
-                      :placeholder="t('episode.asset.appearanceFieldPlaceholder')"
-                    />
-                  </label>
-                  <label v-if="assetDetail.type === 'character'" class="asset-detail-edit-field">
-                    <span>{{ t('episode.asset.stylingField') }}</span>
-                    <textarea
-                      v-model="assetDetailDraft.styling"
-                      class="textarea asset-detail-textarea"
-                      rows="6"
-                      :placeholder="t('episode.asset.stylingFieldPlaceholder')"
-                    />
-                  </label>
-                  <label v-if="assetDetail.type === 'character'" class="asset-detail-edit-field">
-                    <span>{{ t('episode.asset.seedanceAssetUrl') }}</span>
-                    <input
-                      v-model="assetDetailDraft.seedanceAssetUrl"
-                      class="input"
-                      :placeholder="t('episode.asset.seedanceAssetUrlPlaceholder')"
-                    />
-                  </label>
-                  <label v-if="assetDetail.type === 'scene'" class="asset-detail-edit-field">
-                    <span>{{ t('episode.asset.sceneDescField') }}</span>
-                    <textarea
-                      v-model="assetDetailDraft.prompt"
-                      class="textarea asset-detail-textarea"
-                      rows="5"
-                      :placeholder="t('episode.asset.sceneDescPlaceholder')"
-                    />
-                  </label>
-                  <label v-if="assetDetail.type === 'scene'" class="asset-detail-edit-field">
-                    <span>{{ t('episode.asset.sceneLightField') }}</span>
-                    <textarea
-                      v-model="assetDetailDraft.lighting"
-                      class="textarea asset-detail-textarea"
-                      rows="5"
-                      :placeholder="t('episode.asset.sceneLightPlaceholder')"
-                    />
-                  </label>
-                </div>
-
-              </section>
-            </div>
-
-            <section class="asset-detail-prompt-panel">
-              <div class="asset-detail-section-title">
-                <span>{{ assetDetail.type === 'character' ? t('episode.asset.finalPromptTurnaround') : assetDetail.type === 'scene' ? t('episode.asset.finalPromptFixed') : t('episode.asset.finalPromptWhiteBg') }}</span>
-                <div class="asset-detail-prompt-head-actions">
-                  <button
-                    class="btn btn-sm"
-                    :disabled="isGeneratingPrompt(assetDetail.type, assetDetail.item.id) || isAssetImagePending(assetDetail.type, assetDetail.item.id)"
-                    @click="genAssetFinalPrompt"
-                  >
-                    <Loader2 v-if="isGeneratingPrompt(assetDetail.type, assetDetail.item.id)" :size="11" class="animate-spin" />
-                    {{ isGeneratingPrompt(assetDetail.type, assetDetail.item.id) ? t('episode.asset.generating') : (assetFinalPrompt ? t('episode.asset.regenPrompt') : t('episode.asset.genPrompt')) }}
-                  </button>
-                  <span :class="['asset-detail-state', assetFinalPrompt && 'is-ready']">
-                    {{ assetFinalPrompt ? t('episode.asset.ready') : t('episode.asset.todo') }}
-                  </span>
-                  <button
-                    v-if="assetPromptDraft"
-                    class="btn btn-ghost btn-sm asset-detail-copy-btn"
-                    @click="copyAssetFinalPrompt"
-                  >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    {{ t('common.copy') }}
-                  </button>
-                </div>
-              </div>
-              <textarea
-                :value="assetPromptDraft"
-                @input="onAssetPromptInput"
-                class="textarea asset-detail-prompt-textarea"
-                rows="5"
-                :placeholder="assetDetail.type === 'character'
-                  ? t('episode.asset.promptPlaceholderChar')
-                  : assetDetail.type === 'scene'
-                    ? t('episode.asset.promptPlaceholderScene')
-                    : t('episode.asset.promptPlaceholderProp')"
-              />
-              <p class="asset-detail-prompt-hint">
-                {{ assetDetail.type === 'character'
-                  ? t('episode.asset.promptHintChar')
-                  : assetDetail.type === 'scene'
-                    ? t('episode.asset.promptHintScene')
-                    : t('episode.asset.promptHintProp') }}
-              </p>
-            </section>
-          </div>
-
-          <footer class="dialog-foot asset-detail-foot">
-            <div class="asset-detail-secondary-actions">
-              <button class="btn btn-danger" @click="askDeleteAsset(assetDetail.type, assetDetail.item)">{{ t('common.delete') }}</button>
-              <button class="btn" @click="closeAssetDetail">{{ t('common.close') }}</button>
-            </div>
-            <div class="asset-detail-primary-actions">
-              <button
-                class="btn"
-                :disabled="isUploadingAsset(assetDetail.type, assetDetail.item.id)"
-                @click="uploadAssetImage(assetDetail.type, assetDetail.item.id)"
-              >
-                <Loader2 v-if="isUploadingAsset(assetDetail.type, assetDetail.item.id)" :size="11" class="animate-spin" />
-                <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                {{ t('episode.asset.uploadImage') }}
-              </button>
-              <button
-                v-if="assetDetail.type === 'character'"
-                class="btn"
-                :disabled="isPendingCharImage(assetDetail.item.id)"
-                @click="genCharImg(assetDetail.item.id)"
-              >
-                {{ assetImageSrc(assetDetail.item) ? t('episode.asset.regenPortrait') : (isPendingCharImage(assetDetail.item.id) ? t('episode.asset.generating') : t('episode.asset.genPortrait')) }}
-              </button>
-              <button
-                v-else-if="assetDetail.type === 'scene'"
-                class="btn"
-                :disabled="isPendingSceneImage(assetDetail.item.id)"
-                @click="genSceneImg(assetDetail.item.id)"
-              >
-                {{ assetImageSrc(assetDetail.item) ? t('episode.asset.regenScene') : (isPendingSceneImage(assetDetail.item.id) ? t('episode.asset.generating') : t('episode.asset.genScene')) }}
-              </button>
-              <button
-                v-else-if="assetDetail.type === 'prop'"
-                class="btn"
-                :disabled="isPendingPropImage(assetDetail.item.id)"
-                @click="genPropImg(assetDetail.item.id)"
-              >
-                {{ assetImageSrc(assetDetail.item) ? t('episode.asset.regenProp') : (isPendingPropImage(assetDetail.item.id) ? t('episode.asset.generating') : t('episode.asset.genProp')) }}
-              </button>
-              <button class="btn btn-primary" :disabled="savingAssetDetail" @click="saveAssetDetail">
-                <Loader2 v-if="savingAssetDetail" :size="12" class="animate-spin" />
-                {{ t('episode.asset.saveChanges') }}
-              </button>
-            </div>
-          </footer>
-        </section>
-      </div>
 
       <div v-if="imageViewer.open && imageViewer.src" class="overlay image-viewer-overlay" @click.self="closeImageViewer">
         <div class="dialog image-viewer-dialog">
@@ -1358,6 +974,28 @@
         </div>
       </div>
 
+      <div v-if="videoFailure.open" class="overlay image-viewer-overlay" @click.self="closeVideoFailure">
+        <section class="dialog video-failure-dialog" role="dialog" aria-modal="true" aria-labelledby="video-failure-title">
+          <header class="image-viewer-head">
+            <div>
+              <div id="video-failure-title" class="image-viewer-title">视频生成失败</div>
+              <div class="dim video-failure-subtitle">镜头 #{{ String(videoFailure.shotNumber).padStart(2, '0') }}<template v-if="videoFailure.title"> · {{ videoFailure.title }}</template></div>
+            </div>
+            <button class="btn btn-ghost btn-icon" @click="closeVideoFailure" aria-label="关闭">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </header>
+          <div class="dialog-body video-failure-body">
+            <div class="video-failure-summary">{{ videoFailureMessage(videoFailure.error) }}</div>
+            <div class="video-failure-label">失败原因</div>
+            <pre class="video-failure-detail">{{ videoFailure.error }}</pre>
+          </div>
+          <footer class="dialog-foot">
+            <button class="btn" @click="closeVideoFailure">关闭</button>
+          </footer>
+        </section>
+      </div>
+
       <div v-if="activeMerge" class="overlay image-viewer-overlay" @click.self="activeMerge = null">
         <div class="dialog image-viewer-dialog merge-viewer-dialog">
           <div class="image-viewer-head">
@@ -1384,42 +1022,6 @@
         </div>
       </div>
 
-      <div v-if="assetCreate.open" class="overlay" @click.self="assetCreate.open = false">
-        <div class="dialog asset-create-dialog">
-          <header class="dialog-head">
-            <h2 class="dialog-title">{{ t('episode.create.title', { type: assetCreateTypeLabel }) }}</h2>
-            <button class="btn btn-ghost btn-icon" @click="assetCreate.open = false">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </header>
-          <div class="dialog-body asset-create-body">
-            <template v-if="assetCreate.type === 'character'">
-              <label class="field"><span class="field-label">{{ t('episode.create.name') }}</span><input v-model="assetCreateDraft.name" class="input" :placeholder="t('episode.create.namePlaceholderChar')" /></label>
-              <label class="field"><span class="field-label">{{ t('episode.create.roleField') }}</span><input v-model="assetCreateDraft.role" class="input" :placeholder="t('episode.create.rolePlaceholder')" /></label>
-              <label class="field"><span class="field-label">{{ t('episode.asset.appearanceField') }}</span><textarea v-model="assetCreateDraft.appearance" class="textarea" rows="3" :placeholder="t('episode.create.appearancePlaceholder')" /></label>
-              <label class="field"><span class="field-label">{{ t('episode.asset.stylingField') }}</span><textarea v-model="assetCreateDraft.styling" class="textarea" rows="2" :placeholder="t('episode.create.stylingPlaceholder')" /></label>
-            </template>
-            <template v-else-if="assetCreate.type === 'scene'">
-              <label class="field"><span class="field-label">{{ t('episode.create.location') }}</span><input v-model="assetCreateDraft.location" class="input" :placeholder="t('episode.create.locationPlaceholder')" /></label>
-              <label class="field"><span class="field-label">{{ t('episode.create.time') }}</span><input v-model="assetCreateDraft.time" class="input" :placeholder="t('episode.create.timePlaceholder')" /></label>
-              <label class="field"><span class="field-label">{{ t('episode.asset.sceneDescField') }}</span><textarea v-model="assetCreateDraft.prompt" class="textarea" rows="3" :placeholder="t('episode.create.sceneDescPlaceholder')" /></label>
-              <label class="field"><span class="field-label">{{ t('episode.asset.sceneLightField') }}</span><input v-model="assetCreateDraft.lighting" class="input" :placeholder="t('episode.create.lightPlaceholder')" /></label>
-            </template>
-            <template v-else>
-              <label class="field"><span class="field-label">{{ t('episode.create.name') }}</span><input v-model="assetCreateDraft.name" class="input" :placeholder="t('episode.create.namePlaceholderProp')" /></label>
-              <label class="field"><span class="field-label">{{ t('episode.create.typeField') }}</span><input v-model="assetCreateDraft.type" class="input" :placeholder="t('episode.create.typePlaceholder')" /></label>
-              <label class="field"><span class="field-label">{{ t('episode.asset.appearanceOfObject') }}</span><textarea v-model="assetCreateDraft.description" class="textarea" rows="3" :placeholder="t('episode.create.appearanceOnlyPlaceholder')" /></label>
-            </template>
-          </div>
-          <footer class="dialog-foot">
-            <button class="btn" @click="assetCreate.open = false">{{ t('common.cancel') }}</button>
-            <button class="btn btn-primary" :disabled="assetCreate.saving" @click="saveAssetCreate">
-              <Loader2 v-if="assetCreate.saving" :size="12" class="animate-spin" />
-              {{ t('common.add') }}
-            </button>
-          </footer>
-        </div>
-      </div>
 
       <div v-if="batchVideoConfirm.open" class="overlay" @click.self="batchVideoConfirm.open = false">
         <div class="dialog batch-video-dialog">
@@ -1448,9 +1050,37 @@
         :title="t('episode.delete.title', { type: assetDeleteTypeLabel })"
         :message="t('episode.delete.message', { type: assetDeleteTypeLabel, name: assetDeleteName })"
         :loading="assetDelete.loading"
+        confirm-text="移出本集"
         @confirm="confirmDeleteAsset"
         @cancel="assetDelete.open = false"
       />
+      <ConfirmDialog
+        :open="storyboardDelete.open"
+        :title="storyboardDeleteTitle"
+        :message="storyboardDeleteMessage"
+        :loading="storyboardDelete.loading"
+        @confirm="confirmDeleteStoryboard"
+        @cancel="storyboardDelete.open = false"
+      />
+      <VideoRedubDialog
+        :open="videoRedub.open"
+        :storyboard-id="videoRedub.storyboardId"
+        :source-video-url="videoRedub.sourceVideoUrl"
+        :media-url="mediaUrl"
+        @close="videoRedub.open = false"
+        @completed="onVideoRedubCompleted"
+      />
+      <ProjectAssetPicker
+        :open="projectAssetPicker.open"
+        :kind="projectAssetPicker.kind"
+        :drama-id="dramaId"
+        :episode-id="epId"
+        :linked-ids="(projectAssetPicker.kind === 'character' ? chars : projectAssetPicker.kind === 'scene' ? scenes : propItems).map(asset => asset.id)"
+        :media-url="mediaUrl"
+        @close="projectAssetPicker.open = false"
+        @saved="refresh"
+      />
+      <ProjectAudioPicker :open="projectAudioPickerOpen" :project-id="dramaId" :storyboard-id="selectedSb?.id" :current-urls="storyboardReferenceAudioUrls(selectedSb)" :media-url="mediaUrl" @close="projectAudioPickerOpen = false" @saved="applyProjectAudioSelection" />
     </main>
     </div>
   </div>
@@ -1461,12 +1091,12 @@ import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
 import {
   Users, FileText, FolderKanban, Clapperboard, Download, Loader2,
-  Plus, X, ListTodo, CircleHelp,
+  Plus, X, ListTodo, CircleHelp, Trash2, Music2, Upload, Mic, Link2,
 } from 'lucide-vue-next'
 import { api, dramaAPI, episodeAPI, storyboardAPI, characterAPI, sceneAPI, propAPI, taskAPI, mergeAPI, aiConfigAPI, uploadAPI, assetLibraryAPI } from '~/composables/useApi'
 import { startTour, autoTour } from '~/composables/useTour'
 import { useAgent } from '~/composables/useAgent'
-import { toastError, mapError, MODERATION_RE } from '~/composables/useToast'
+import { assetLibraryUploadError, toastError, mapError, MODERATION_RE } from '~/composables/useToast'
 import LocaleSwitcher from '~/components/LocaleSwitcher.vue'
 
 definePageMeta({ layout: 'studio' })
@@ -1674,6 +1304,7 @@ function closeTaskDrawer() {
 const imageViewer = ref({ open: false, src: '', title: '' })
 const activeMerge = ref(null) // 成片大预览弹窗中正在播放的拼接记录
 const previewShot = ref(null) // 导出页镜头素材预览弹窗中正在播放的分镜
+const videoFailure = ref({ open: false, shotNumber: 0, title: '', error: '' })
 function shotNumberOf(sb) {
   const i = sbs.value.findIndex(s => s.id === sb?.id)
   return i >= 0 ? i + 1 : 0
@@ -1706,12 +1337,17 @@ function isUploadingToAssetLibrary(id) {
   return assetLibraryUploadIds.value.includes(id)
 }
 
+function hasAssetLibraryReference(character) {
+  const status = character?.asset_library_status || character?.assetLibraryStatus
+  return (!status || status === 'available') && /^asset:\/\//i.test(String(character?.seedance_asset_url || character?.seedanceAssetUrl || '').trim())
+}
+
 async function uploadCharacterToAssetLibrary(character) {
-  if (!character?.id || isUploadingToAssetLibrary(character.id)) return
+  if (!character?.id || isUploadingToAssetLibrary(character.id) || hasAssetLibraryReference(character)) return
   assetLibraryUploadIds.value.push(character.id)
   try {
     const uploaded = await assetLibraryAPI.uploadCharacter(character.id)
-    const patch = { seedance_asset_url: uploaded.asset_url, seedanceAssetUrl: uploaded.asset_url }
+    const patch = { seedance_asset_url: uploaded.asset_url, seedanceAssetUrl: uploaded.asset_url, asset_library_status: 'available', assetLibraryStatus: 'available' }
     Object.assign(character, patch)
     const target = chars.value.find(item => item.id === character.id)
     if (target) Object.assign(target, patch)
@@ -1719,9 +1355,11 @@ async function uploadCharacterToAssetLibrary(character) {
       Object.assign(assetDetail.value.item, patch)
       assetDetailDraft.value.seedanceAssetUrl = uploaded.asset_url
     }
-    toast.success(`已上传至素材库：${uploaded.asset_url}`)
+    await refresh()
+    const count = Number(uploaded.synced_storyboard_count || 0)
+    toast.success(count ? `已上传至素材库，并同步 ${count} 个关联镜头` : `已上传至素材库：${uploaded.asset_url}`)
   } catch (e) {
-    toastError(e)
+    toast.error(assetLibraryUploadError(e), { duration: 10_000 })
   } finally {
     assetLibraryUploadIds.value = assetLibraryUploadIds.value.filter(id => id !== character.id)
   }
@@ -1737,18 +1375,16 @@ function closeImageViewer() {
 }
 
 function openAssetDetail(type, item) {
-  if (!item) return
-  assetDetail.value = { open: true, type, item }
-  assetDetailDraft.value = {
-    appearance: item.appearance || '',
-    styling: item.styling || '',
-    seedanceAssetUrl: item.seedance_asset_url || item.seedanceAssetUrl || '',
-    prompt: item.prompt || (type === 'prop' ? '' : item.description) || '',
-    lighting: item.lighting || '',
-    description: item.description || '',
+  manageProjectAsset(type, item)
+}
+
+function manageProjectAsset(kind, asset) {
+  const query = { tab: 'assets' }
+  if (kind && asset?.id) {
+    query.asset_kind = kind
+    query.asset_id = String(asset.id)
   }
-  assetPromptDraft.value = item.final_prompt || item.finalPrompt || ''
-  assetPromptDirty.value = false
+  navigateTo({ path: `/drama/${dramaId}`, query })
 }
 
 function closeAssetDetail() {
@@ -1769,6 +1405,7 @@ function assetKindLabel(type) {
   return assetKindLabelMap.value[type] || t('episode.asset.fallbackType')
 }
 const assetCreate = ref({ open: false, type: 'character', saving: false })
+const projectAssetPicker = ref({ open: false, kind: 'scene' })
 const assetCreateDraft = ref({})
 const assetCreateTypeLabel = computed(() => assetKindLabel(assetCreate.value.type))
 
@@ -1815,9 +1452,7 @@ async function confirmDeleteAsset() {
   if (!item || assetDelete.value.loading) return
   assetDelete.value.loading = true
   try {
-    if (type === 'character') await characterAPI.del(item.id)
-    else if (type === 'scene') await sceneAPI.del(item.id)
-    else await propAPI.del(item.id)
+    await episodeAPI.unlinkAsset(epId.value, type, item.id)
     toast.success(t('episode.delete.deleted', { type: assetDeleteTypeLabel.value }))
     assetDelete.value.open = false
     if (assetDetail.value.open && assetDetail.value.type === type && assetDetail.value.item?.id === item.id) closeAssetDetail()
@@ -1826,6 +1461,43 @@ async function confirmDeleteAsset() {
     toastError(e)
   } finally {
     assetDelete.value.loading = false
+  }
+}
+
+// ─── 删除镜头 ────────────────────────────────────────────────
+const storyboardDelete = ref({ open: false, item: null, loading: false })
+const storyboardDeleteNumber = computed(() => {
+  const id = storyboardDelete.value.item?.id
+  const index = sbs.value.findIndex(sb => sb.id === id)
+  return index >= 0 ? index + 1 : 0
+})
+const storyboardDeleteTitle = computed(() => t('episode.vid.deleteShotTitle', { n: storyboardDeleteNumber.value }))
+const storyboardDeleteMessage = computed(() => t('episode.vid.deleteShotMessage', { n: storyboardDeleteNumber.value }))
+
+function askDeleteStoryboard(storyboard) {
+  if (!storyboard?.id) return
+  storyboardDelete.value = { open: true, item: storyboard, loading: false }
+}
+
+async function confirmDeleteStoryboard() {
+  const storyboard = storyboardDelete.value.item
+  if (!storyboard?.id || storyboardDelete.value.loading) return
+  storyboardDelete.value.loading = true
+  try {
+    await storyboardAPI.del(storyboard.id)
+    selectedVideoSbIds.value = selectedVideoSbIds.value.filter(id => id !== storyboard.id)
+    pendingVideoIds.value = pendingVideoIds.value.filter(id => id !== storyboard.id)
+    const nextFailures = { ...failedVideoMessages.value }
+    delete nextFailures[storyboard.id]
+    failedVideoMessages.value = nextFailures
+    if (selectedSb.value?.id === storyboard.id) selectedSb.value = null
+    storyboardDelete.value.open = false
+    await refresh()
+    toast.success(t('episode.vid.deleteShotDone'))
+  } catch (e) {
+    toastError(e)
+  } finally {
+    storyboardDelete.value.loading = false
   }
 }
 
@@ -2009,6 +1681,7 @@ function sceneLightingValue(scene) {
 function handleImageViewerKeydown(event) {
   if (event.key !== 'Escape') return
   if (imageViewer.value.open) closeImageViewer()
+  else if (videoFailure.value.open) closeVideoFailure()
   else if (assetDetail.value.open) closeAssetDetail()
   else if (taskDrawer.value) closeTaskDrawer()
 }
@@ -2042,10 +1715,16 @@ function videoModerationHint(msg) {
 
 function videoFailureMessage(msg) {
   const raw = String(msg || '')
+  if (/expected the (width|height) to be at least \d+px/i.test(raw)) {
+    return '参考图片尺寸不足，已加入自动尺寸调整，请重新生成视频。'
+  }
   if (/InputImageSensitiveContentDetected\.PrivacyInformation|input image.*may contain real person/i.test(raw)) {
     return t('episode.vid.referenceImagePrivacyRejected')
   }
   if (/role must be specified for image contents/i.test(raw)) return t('episode.vid.referenceImageRoleMissing')
+  if (/asset reference is unavailable or not owned by the current user/i.test(raw)) {
+    return t('episode.vid.referenceAssetUnavailable')
+  }
   return mapError(raw, { fallback: 'episode.vid.genFailed' })
 }
 
@@ -2114,9 +1793,27 @@ function toggleVideoSelectMode() {
   videoSelectMode.value = !videoSelectMode.value
   if (!videoSelectMode.value) selectedVideoSbIds.value = []
 }
-function onVideoTaskRowClick(sb) {
+function showVideoFailure(task) {
+  videoFailure.value = {
+    open: true,
+    shotNumber: task.index + 1,
+    title: task.title || '',
+    error: String(task.error || ''),
+  }
+}
+
+function closeVideoFailure() {
+  videoFailure.value.open = false
+}
+
+function onVideoTaskRowClick(task) {
+  const sb = task.storyboard
   if (videoSelectMode.value) toggleVideoSbSelect(sb.id)
-  else selectedSb.value = sb
+  else {
+    // Preserve the normal inspector workflow before showing the failure detail.
+    selectedSb.value = sb
+    if (task.state === 'failed' && task.error) showVideoFailure(task)
+  }
 }
 
 // 旁白角色识别：按内容语言的关键词匹配（提取产物中的旁白角色不参与画面生成）
@@ -2148,7 +1845,7 @@ const resolutionOptions = computed(() => RESOLUTION_TIERS[resolutionProvider.val
 const episodeResolution = computed({
   get: () => {
     const v = episode.value?.resolution
-    return resolutionOptions.value.some(o => o.key === v) ? v : '720p'
+    return resolutionOptions.value.some(o => o.key === v) ? v : '480p'
   },
   set: (val) => { void changeEpisodeResolution(val) },
 })
@@ -2405,6 +2102,18 @@ function genTaskStatusLabel(status) {
   if (status === 'completed') return t('episode.status.done')
   if (status === 'failed') return t('episode.status.failed')
   return t('episode.status.generating')
+}
+
+/**
+ * 合并失败通常由后端生成简明中文原因（例如缺失哪些镜头文件）。
+ * 这类原因可直接帮助用户处理；FFmpeg 等原始技术输出仍交给 mapError 隐藏。
+ */
+function mergeFailureMessage(error) {
+  const raw = String(error || '').trim()
+  if (!raw) return t('episode.export.mergeFailed')
+  const isFriendlyChinese = /[\u4e00-\u9fff]/.test(raw)
+    && !/[{}[\]<>]|https?:\/\/|\b(error|errno|exception|code|stack|undefined|null)\b|[a-z]+_[a-z]+/i.test(raw)
+  return isFriendlyChinese ? raw : mapError(raw, { fallback: 'episode.export.mergeFailed' })
 }
 
 // 映射到现有 video-task-status 的样式类:is-done / is-pending / is-failed
@@ -3108,6 +2817,24 @@ function hasVid(s) { return !!getVideoUrl(s) }
 // ===== 分镜视频历史（一个分镜可能生成多个视频,sys_task 留存全部记录）=====
 const sbVideoHistory = ref([])
 const previewVideoUrl = ref('') // 正在预览的历史视频(相对路径);空 = 预览当前主视频
+const videoRedub = ref({ open: false, storyboardId: 0, sourceVideoUrl: '' })
+
+function openVideoRedub() {
+  if (!selectedSb.value?.id) return
+  videoRedub.value = {
+    open: true,
+    storyboardId: selectedSb.value.id,
+    sourceVideoUrl: previewVideoUrl.value || getVideoUrl(selectedSb.value),
+  }
+}
+
+async function onVideoRedubCompleted({ storyboardId, url }) {
+  await loadGenTasks()
+  if (selectedSb.value?.id === storyboardId) {
+    await loadSbVideoHistory()
+    previewVideoUrl.value = url
+  }
+}
 
 // 注意:/tasks 返回原始行(camelCase),/episodes/:id/generation-tasks 返回 snake_case,两种命名都兼容
 function taskVideoPath(t) { return t?.local_path || t?.localPath || t?.result_url || t?.resultUrl || '' }
@@ -3177,7 +2904,7 @@ function getShotReferenceImages(sb) {
 }
 
 function usesSeedanceAssetLibrary() {
-  return /^(dreamina|doubao)-seedance-2-0/i.test(bareModelName(videoModel.value) || '')
+  return /^(?:(?:seedreamina|dreamina)-seedance-2-(?:0|5)|doubao-seedance-2-0)/i.test(bareModelName(videoModel.value) || '')
 }
 
 function videoReferenceImage(asset) {
@@ -3357,6 +3084,94 @@ function pickFile(accept, cb) {
   input.click()
 }
 
+const REFERENCE_AUDIO_LIMIT = 3
+const projectAudioPickerOpen = ref(false)
+const projectAudioAssets = ref([])
+watch(() => epId.value, async id => {
+  if (!id) return
+  try { projectAudioAssets.value = await assetLibraryAPI.audio(dramaId) } catch {}
+}, { immediate: true })
+async function applyProjectAudioSelection(urls) {
+  if (!selectedSb.value) return
+  const value = JSON.stringify(urls)
+  selectedSb.value.reference_audio_urls = value
+  selectedSb.value.referenceAudioUrls = value
+  try { projectAudioAssets.value = await assetLibraryAPI.audio(dramaId) } catch {}
+  toast.success('项目参考音频已关联到当前镜头')
+}
+const referenceAudioUploadIds = ref([])
+
+function storyboardReferenceAudioUrls(sb) {
+  const raw = sb?.reference_audio_urls ?? sb?.referenceAudioUrls
+  if (Array.isArray(raw)) return raw.map(url => String(url || '').trim()).filter(Boolean)
+  try {
+    const parsed = JSON.parse(String(raw || '[]'))
+    return Array.isArray(parsed) ? parsed.map(url => String(url || '').trim()).filter(Boolean) : []
+  } catch {
+    return []
+  }
+}
+
+function isUploadingReferenceAudio(storyboardId) {
+  return referenceAudioUploadIds.value.includes(storyboardId)
+}
+
+function referenceAudioFilename(url) {
+  const asset = projectAudioAssets.value.find(asset => asset.url === url)
+  if (asset?.name) return asset.name
+  const value = String(url || '').split(/[?#]/)[0]
+  const fallback = t('episode.inspector.audioN', { n: '' }).trim()
+  try { return decodeURIComponent(value.split('/').pop() || '') || fallback } catch { return value.split('/').pop() || fallback }
+}
+
+async function saveStoryboardReferenceAudioUrls(sb, urls) {
+  const previous = sb.reference_audio_urls ?? sb.referenceAudioUrls ?? null
+  const next = JSON.stringify(urls)
+  sb.reference_audio_urls = next
+  sb.referenceAudioUrls = next
+  try {
+    await storyboardAPI.update(sb.id, { reference_audio_urls: urls })
+  } catch (e) {
+    sb.reference_audio_urls = previous
+    sb.referenceAudioUrls = previous
+    toastError(e)
+    throw e
+  }
+}
+
+function uploadStoryboardReferenceAudio(sb) {
+  if (!sb?.id || isUploadingReferenceAudio(sb.id) || storyboardReferenceAudioUrls(sb).length >= REFERENCE_AUDIO_LIMIT) return
+  pickFile('audio/mpeg,audio/wav,audio/mp4,audio/x-m4a,audio/aac,.mp3,.wav,.m4a,.aac', async (file) => {
+    referenceAudioUploadIds.value.push(sb.id)
+    try {
+      const uploaded = await uploadAPI.audio(file)
+      await saveStoryboardReferenceAudioUrls(sb, [...storyboardReferenceAudioUrls(sb), uploaded.path])
+      toast.success(t('episode.inspector.refAudioUploaded'))
+    } catch (e) {
+      toastError(e)
+    } finally {
+      referenceAudioUploadIds.value = referenceAudioUploadIds.value.filter(id => id !== sb.id)
+    }
+  })
+}
+
+async function removeStoryboardReferenceAudio(sb, url) {
+  if (!sb?.id || isUploadingReferenceAudio(sb.id)) return
+  referenceAudioUploadIds.value.push(sb.id)
+  try {
+    const assets = await assetLibraryAPI.audio(dramaId)
+    const remaining = storyboardReferenceAudioUrls(sb).filter(item => item !== url)
+    const selected = remaining.map(path => assets.find(asset => asset.url === path))
+    if (selected.some(asset => !asset)) throw new Error('音频引用已变化，请刷新后重试')
+    const result = await assetLibraryAPI.setShotAudio(sb.id, selected.map(asset => asset.id))
+    const next = JSON.stringify(result.reference_audio_urls)
+    sb.reference_audio_urls = next
+    sb.referenceAudioUrls = next
+    toast.success(t('episode.inspector.refAudioRemoved'))
+  } catch (error) { toast.error(error.message || '移除音频引用失败') }
+  finally { referenceAudioUploadIds.value = referenceAudioUploadIds.value.filter(id => id !== sb.id) }
+}
+
 // ===== 资产图片手动上传（角色形象 / 场景图 / 道具图）=====
 // 上传类型显示名渲染时求值
 const assetUploadLabelMap = computed(() => ({
@@ -3389,6 +3204,7 @@ function uploadAssetImage(kind, id) {
 
 async function genVid(sb, opts = {}) {
   const referenceImages = getShotReferenceImages(sb)
+  const referenceAudioUrls = storyboardReferenceAudioUrls(sb)
   // 参考素材完全来自分镜绑定的角色/场景/道具图片
   const params = {
     storyboard_id: sb.id,
@@ -3400,9 +3216,14 @@ async function genVid(sb, opts = {}) {
     model: bareModelName(videoModel.value) || undefined,
     config_id: ownerConfigId(videoModelOptions.value, videoModel.value),
     reference_image_urls: referenceImages,
+    reference_audio_urls: referenceAudioUrls,
   }
   if (!params.prompt && !referenceImages.length) {
     toast.error(t('episode.vid.needRefOrPrompt'))
+    return
+  }
+  if (referenceAudioUrls.length && !referenceImages.length) {
+    toast.error(t('episode.inspector.refAudioHint'))
     return
   }
   try {
@@ -3471,7 +3292,7 @@ async function doMerge(ids) {
     await mergeAPI.merge(epId.value, storyboardIds)
     toast.success(t('episode.export.mergingToast'))
   } catch (e) {
-    toastError(e, { fallback: 'episode.export.mergeFailed' })
+    toast.error(mergeFailureMessage(e?.message || e), { duration: 10_000 })
     return
   }
   const poll = setInterval(async () => {
@@ -3480,10 +3301,11 @@ async function doMerge(ids) {
       clearInterval(poll)
       if (mergeData.value.status === 'completed') {
         toast.success(t('episode.export.mergeDone'))
-        loadExportMerges()
       } else {
-        toastError(mergeData.value?.error_msg || mergeData.value?.errorMsg, { fallback: 'episode.export.mergeFailed' })
+        const reason = mergeFailureMessage(mergeData.value?.error_msg || mergeData.value?.errorMsg)
+        toast.error(reason, { duration: 10_000 })
       }
+      loadExportMerges()
     }
   }, 3000)
 }
@@ -3514,6 +3336,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
 </script>
 
 <style scoped>
+.project-shared-note { margin: 0 0 12px; color: var(--text-3); font-size: 12px; line-height: 1.5; }
 /* ===== Studio Layout ===== */
 .studio {
   display: flex;
@@ -4533,6 +4356,19 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   color: var(--text-0);
 }
 .character-gen-btn { flex-shrink: 0; align-self: center; }
+.character-asset-library-hint {
+  margin: 0;
+  color: var(--error);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.character-asset-library-hint.ready { color: var(--success); }
+.asset-library-upload-required {
+  color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 45%, var(--border));
+  background: var(--error-bg);
+}
 .studio-model-picks {
   display: flex;
   align-items: center;
@@ -5215,6 +5051,44 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   height: 24px;
   padding: 0;
 }
+.video-task-actions { display: flex; align-items: center; gap: 4px; justify-self: end; }
+.video-task-delete {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--text-3);
+}
+.video-task-delete:hover { color: var(--error); border-color: var(--error); background: var(--error-bg); }
+.video-failure-dialog { width: min(620px, calc(100vw - 48px)); }
+.video-failure-subtitle { margin-top: 3px; font-size: 11px; max-width: 470px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.video-failure-body { display: flex; flex-direction: column; gap: 10px; }
+.video-failure-summary {
+  padding: 10px 12px;
+  border: 1px solid var(--error-bg);
+  border-radius: var(--radius);
+  background: var(--error-bg);
+  color: var(--error);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.55;
+}
+.video-failure-label { color: var(--text-3); font-size: 11px; font-weight: 700; }
+.video-failure-detail {
+  max-height: min(260px, 36vh);
+  overflow: auto;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
 .video-task-inspector {
   min-width: 0;
   min-height: 0;
@@ -5317,6 +5191,23 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
 }
 .video-bound-ref-empty { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11px; }
 .video-bound-refs-empty { padding: 10px; border: 1px dashed var(--surface-outline); border-radius: var(--radius); color: var(--text-3); font-size: 11px; line-height: 1.5; }
+.reference-audio-list { display: flex; flex-direction: column; gap: 6px; }
+.reference-audio-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 7px;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  color: var(--accent-text);
+  background: var(--bg-input);
+}
+.reference-audio-item audio { grid-column: 2 / -1; width: 100%; height: 28px; }
+.reference-audio-name { min-width: 0; overflow: hidden; color: var(--text-2); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+.reference-audio-remove { grid-column: 3; grid-row: 1; width: 24px; height: 24px; padding: 0; color: var(--text-3); }
+.reference-audio-remove:hover { color: var(--error); border-color: var(--error); background: var(--error-bg); }
+.reference-audio-hint { margin: 7px 0 0; color: var(--text-3); font-size: 10.5px; line-height: 1.45; }
 .video-param-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; white-space: nowrap; }
 .video-param-name { color: var(--text-1); font-weight: 600; flex-shrink: 0; }
 .video-param-value { color: var(--text-1); text-align: right; font-size: 11px; }
@@ -5810,6 +5701,15 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
 .merge-card-pending.is-failed { color: var(--error); background: var(--error-bg); }
 .merge-card-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-3); min-width: 0; }
 .merge-card-meta .btn { margin-left: auto; }
+.merge-card-error {
+  margin-top: 7px;
+  color: var(--error);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: break-word;
+  user-select: text;
+}
 .merge-card.playable { cursor: pointer; }
 .merge-card.playable:hover { border-color: var(--border-strong); box-shadow: var(--shadow-card); }
 .merge-card-thumb { position: relative; }

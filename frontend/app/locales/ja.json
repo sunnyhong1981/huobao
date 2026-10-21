@@ -529,9 +529,9 @@
       "typeScene": "シーン資産",
       "typeProp": "小道具資産",
       "detailTitle": "{type}詳細",
-      "delChar": "キャラクターを削除",
-      "delScene": "シーンを削除",
-      "delProp": "小道具を削除",
+      "delChar": "この話からキャラクターを外す",
+      "delScene": "この話からシーンを外す",
+      "delProp": "この話から小道具を外す",
       "charImageTitle": "{name} キャラクターイメージ",
       "sceneImageTitle": "{name} シーン図",
       "propImageTitle": "{name} 小道具図",
@@ -548,6 +548,11 @@
       "uploadSceneImage": "シーン図をアップロード",
       "uploadPropImage": "小道具図をアップロード",
       "uploadImage": "画像をアップロード",
+      "uploadToAssetLibrary": "素材ライブラリにアップロード",
+      "assetLibraryRequired": "動画生成前に、このキャラクター画像を素材ライブラリへアップロードしてください。",
+      "assetLibraryReady": "キャラクター素材はライブラリに登録済みで、動画生成に使用できます。",
+      "assetLibraryReadyShort": "登録済み",
+      "assetLibraryUploadFailed": "素材ライブラリへのアップロードに失敗しました：{reason}",
       "appearance": "外見：",
       "styling": "スタイリング：",
       "lighting": "光照 · ",
@@ -641,9 +646,9 @@
       "created": "{type}を追加しました"
     },
     "delete": {
-      "title": "{type}を削除",
-      "message": "{type}「{name}」を削除しますか？この作品のすべての話から取り除かれます。",
-      "deleted": "{type}を削除しました"
+      "title": "この話から{type}を外す",
+      "message": "この話から{type}「{name}」を外しますか？素材はプロジェクトに残り、他の話では引き続き利用できます。",
+      "deleted": "この話から{type}を外しました"
     },
     "sb": {
       "title": "分镜分解",
@@ -745,6 +750,7 @@
       "genFailed": "動画生成に失敗しました",
       "referenceImagePrivacyRejected": "動画モデルがキャラクター参考画像を実在人物の可能性があるものとして検出したため、使用できません。明確にイラスト・アニメ風の画像に替えるか、キャラクター参考画像なしで再試行してください。",
       "referenceImageRoleMissing": "動画の参考画像形式が正しくありません。参考画像の role が不足しています。修正済みですので、もう一度生成してください。",
+      "referenceAssetUnavailable": "参照素材が利用できないか、現在の動画アカウントに属していません。現在のアカウントで素材を再アップロードしてから再試行してください。",
       "genTimeout": "動画生成がタイムアウトしました",
       "allDone": "すべてのショット動画が生成済みです",
       "moderationHint": "実写人物/センシティブ内容の審査で拒否された可能性があります。上部バーで別の動画モデルに切り替えて再試行してください",
@@ -767,6 +773,10 @@
       "confirmNote": "上記の設定でショットごとに生成を開始します。失敗したタスクは後で「失敗を再試行」からまとめて再実行できます。",
       "confirmStart": "生成開始 ({n})",
       "selectMissing": "未生成を選択",
+      "deleteShot": "ショットを削除",
+      "deleteShotTitle": "ショット #{n} を削除",
+      "deleteShotMessage": "このショットとキャラクター・小道具の紐付けを削除します。残りのショットは自動で番号を振り直します。履歴タスクと生成済み動画ファイルは保持されます。",
+      "deleteShotDone": "ショットを削除しました",
       "aspectRatio": "アスペクト比"
     },
     "inspector": {
@@ -780,6 +790,10 @@
       "uploadRefVideo": "参照動画をアップロード ({used}/{limit})",
       "uploadRefAudio": "参照音声をアップロード ({used}/{limit})",
       "refAudioHint": "参照音声には参照画像または動画が 1 つ以上必要です",
+      "noRefAudio": "参照音声はありません",
+      "removeRefAudio": "参照音声を削除",
+      "refAudioUploaded": "参照音声を追加しました",
+      "refAudioRemoved": "参照音声を削除しました",
       "params": "生成パラメータ",
       "duration": "分镜の長さ",
       "durationUnit": "s（4-15）",

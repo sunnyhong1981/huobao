@@ -13,3 +13,12 @@ test('character image generation uses 16:9 asset size', () => {
   assert.match(source, /半身角色海报构图/)
   assert.match(source, /size: CHARACTER_IMAGE_SIZE/)
 })
+
+test('replacing a character image clears its stale asset-library URI', () => {
+  const route = read('src/routes/characters.ts')
+  const generation = read('src/services/generation.ts')
+
+  assert.match(route, /const imageChanged/)
+  assert.match(route, /if \(imageChanged && updates\.seedanceAssetUrl === undefined\) updates\.seedanceAssetUrl = null/)
+  assert.match(generation, /imageUrl: localPath, seedanceAssetUrl: null/)
+})

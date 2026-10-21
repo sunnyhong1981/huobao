@@ -1,13 +1,14 @@
 /**
  * 统一生成任务服务 — 图片/视频生成共用 sys_task 表与同一条生命周期：
- * 创建(processing) → 适配器构建请求 → 同步完成或异步轮询 → 回写远程结果 → 异步下载落盘
+ * 创建(processing) → 适配器构建请求 → 同步完成或异步轮询 → 回写远程结果 → 下载落盘
  */
 import { db, getInsertId, schema } from '../db/index.js'
-import { eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { getActiveConfig, getConfigById } from './ai.js'
 import { now } from '../utils/response.js'
-import { downloadFile, fetchImageAsCompressedDataUrl, generateImageThumb, readImageAsCompressedDataUrl, saveBase64Image } from '../utils/storage.js'
+import { compressImageAsDataUrl, downloadFile, fetchImageAsCompressedDataUrl, generateImageThumb, parseDataUrl, readImageAsCompressedDataUrl, saveBase64Image } from '../utils/storage.js'
 import { extractVideoPoster } from '../utils/video-poster.js'
+import { reconcileCharacterAssets } from './character-asset-references.js'
 import { getImageAdapter, getVideoAdapter } from './adapters/registry'
 import type { AIConfig } from './adapters/types'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn, redactUrl } from '../utils/task-logger.js'
@@ -224,11 +225,17 @@ async function processTask(id: number, config: AIConfig) {
       }))
     } else {
       const adapter = getVideoAdapter(config.provider)
-      const resolvedImageUrl = await normalizeVideoReferenceUrl(params.imageUrl)
-      const resolvedFirstFrameUrl = await normalizeVideoReferenceUrl(params.firstFrameUrl)
-      const resolvedLastFrameUrl = await normalizeVideoReferenceUrl(params.lastFrameUrl)
+      const minImageSize = /^(?:(?:seedreamina|dreamina)-seedance-2-(?:0|5)|doubao-seedance-2-0)/i.test(String(record.model || config.model)) ? 300 : 0
+      const resolvedImageUrl = await normalizeVideoReferenceUrl(params.imageUrl, minImageSize)
+      const resolvedFirstFrameUrl = await normalizeVideoReferenceUrl(params.firstFrameUrl, minImageSize)
+      const resolvedLastFrameUrl = await normalizeVideoReferenceUrl(params.lastFrameUrl, minImageSize)
       const referenceImageUrls = await preferSeedanceCharacterAssets(record, params.referenceImageUrls, record.model || config.model)
-      const resolvedReferenceImageUrls = await normalizeVideoReferenceUrls(referenceImageUrls)
+      if (JSON.stringify(referenceImageUrls) !== JSON.stringify(params.referenceImageUrls)) {
+        params.referenceImageUrls = referenceImageUrls
+        await db.update(schema.sysTask).set({ params: JSON.stringify(params), updatedAt: now() })
+          .where(eq(schema.sysTask.id, record.id))
+      }
+      const resolvedReferenceImageUrls = await normalizeVideoReferenceUrls(referenceImageUrls, minImageSize)
       // 参考视频/音频文件较大，不适合 dataURL 内联，需解析为公网可访问 URL
       const resolvedReferenceVideoUrls = resolvePublicMediaUrls(params.referenceVideoUrls, 'video')
       const resolvedReferenceAudioUrls = resolvePublicMediaUrls(params.referenceAudioUrls, 'audio')
@@ -455,7 +462,32 @@ async function writeBackImageAssets(record: SysTaskRecord, localPath: string) {
     await db.update(schema.storyboards).set(sbUpdate).where(eq(schema.storyboards.id, record.storyboardId))
   }
   if (record.characterId) {
-    await db.update(schema.characters).set({ imageUrl: localPath, updatedAt: now() }).where(eq(schema.characters.id, record.characterId))
+    // 新生成的角色图与旧素材库 URI 不再对应，需重新上传后才可作为视频参考。
+    const [character] = await db.select({
+      seedanceAssetUrl: schema.characters.seedanceAssetUrl,
+      seedancePreviousAssetUrl: schema.characters.seedancePreviousAssetUrl,
+      seedancePreviousReferences: schema.characters.seedancePreviousReferences,
+      imageUrl: schema.characters.imageUrl,
+      localPath: schema.characters.localPath,
+    })
+      .from(schema.characters)
+      .where(eq(schema.characters.id, record.characterId))
+    let previousReferences: string[] = []
+    try {
+      const parsed = JSON.parse(character?.seedancePreviousReferences || '[]')
+      if (Array.isArray(parsed)) previousReferences = parsed.map(value => String(value || '').trim()).filter(Boolean)
+    } catch {}
+    await db.update(schema.characters)
+      .set({
+        imageUrl: localPath,
+        seedanceAssetUrl: null,
+        seedancePreviousAssetUrl: character?.seedanceAssetUrl || character?.seedancePreviousAssetUrl || null,
+        seedancePreviousReferences: JSON.stringify(
+          [...new Set([...previousReferences, character?.imageUrl, character?.localPath].map(value => String(value || '').trim()).filter(Boolean))],
+        ),
+        updatedAt: now(),
+      })
+      .where(eq(schema.characters.id, record.characterId))
   }
   if (record.sceneId) {
     await db.update(schema.scenes).set({ imageUrl: localPath, status: 'completed', updatedAt: now() }).where(eq(schema.scenes.id, record.sceneId))
@@ -479,8 +511,9 @@ async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, dura
       .where(eq(schema.storyboards.id, record.storyboardId))
   }
 
-  // TOS 临时视频链接偶尔在服务器侧下载极慢。先让用户直接播放，再后台缓存，缓存失败不影响完成状态。
-  void cacheVideoLocally(record, videoUrl)
+  // TOS 视频链接会过期。等待本地缓存完成，确保后续拼接不依赖临时 URL；
+  // cacheVideoLocally 自行吞掉缓存错误，因此不影响生成任务的完成状态。
+  await cacheVideoLocally(record, videoUrl)
 }
 
 async function cacheVideoLocally(record: SysTaskRecord, videoUrl: string) {
@@ -494,8 +527,15 @@ async function cacheVideoLocally(record: SysTaskRecord, videoUrl: string) {
     if (!record.storyboardId) return
     const [storyboard] = await db.select().from(schema.storyboards)
       .where(eq(schema.storyboards.id, record.storyboardId))
-    // 不覆盖缓存期间用户发起的新一轮视频生成。
-    if (storyboard?.videoUrl === videoUrl) {
+    // Only the newest video task may become the storyboard's canonical local
+    // file. Older tasks can finish downloading after a retry and must not
+    // overwrite the newer result.
+    const [latestVideoTask] = await db.select({ id: schema.sysTask.id })
+      .from(schema.sysTask)
+      .where(and(eq(schema.sysTask.type, 'video'), eq(schema.sysTask.storyboardId, record.storyboardId)))
+      .orderBy(desc(schema.sysTask.createdAt), desc(schema.sysTask.id))
+      .limit(1)
+    if (storyboard && latestVideoTask?.id === record.id) {
       await db.update(schema.storyboards)
         .set({ videoUrl: localPath, updatedAt: now() })
         .where(eq(schema.storyboards.id, record.storyboardId))
@@ -553,18 +593,21 @@ async function normalizeReferenceImages(refs: string[] | null | undefined): Prom
   return normalized.filter((item): item is string => !!item).slice(0, 6)
 }
 
-async function normalizeVideoReferenceUrl(value: string | null | undefined): Promise<string | null> {
+async function normalizeVideoReferenceUrl(value: string | null | undefined, minImageSize = 0): Promise<string | null> {
   const raw = String(value || '').trim()
   if (!raw) return null
+  const options = { maxWidth: 768, maxHeight: 768, minWidth: minImageSize, minHeight: minImageSize, quality: 68 }
+  if (raw.startsWith('data:image/') && minImageSize) {
+    const file = parseDataUrl(raw)
+    if (!file) throw new Error('参考图片数据无效')
+    return compressImageAsDataUrl(Buffer.from(file.data, 'base64'), options)
+  }
   if (raw.startsWith('data:image/')) return raw
+  if (/^https?:\/\//i.test(raw) && minImageSize) return fetchImageAsCompressedDataUrl(raw, options)
   if (raw.startsWith('static/') || raw.startsWith('/static/')) {
     const localPath = raw.startsWith('/static/') ? raw.slice(1) : raw
     try {
-      return await readImageAsCompressedDataUrl(localPath, {
-        maxWidth: 768,
-        maxHeight: 768,
-        quality: 68,
-      })
+      return await readImageAsCompressedDataUrl(localPath, options)
     } catch (err) {
       logTaskWarn('VideoTask', 'reference-read-failed', { path: localPath, error: (err as Error).message })
       return null
@@ -573,41 +616,50 @@ async function normalizeVideoReferenceUrl(value: string | null | undefined): Pro
   return raw
 }
 
-async function normalizeVideoReferenceUrls(refs: string[] | null | undefined): Promise<string[]> {
+async function normalizeVideoReferenceUrls(refs: string[] | null | undefined, minImageSize = 0): Promise<string[]> {
   if (!Array.isArray(refs) || !refs.length) return []
   const normalized = await Promise.all(
-    Array.from(new Set(refs.map((item) => String(item || '').trim()).filter(Boolean))).map((item) => normalizeVideoReferenceUrl(item)),
+    Array.from(new Set(refs.map((item) => String(item || '').trim()).filter(Boolean))).map((item) => normalizeVideoReferenceUrl(item, minImageSize)),
   )
   return normalized.filter((item): item is string => !!item)
 }
 
 /**
  * 角色展示图仍保存为普通图片 URL；Seedance 素材库 URI 仅用于视频请求。
- * 后端在任务处理时再次替换，避免页面未刷新而继续提交旧参考图。
+ * 后端在任务处理时再次替换，避免页面未刷新而继续提交旧参考图或旧 asset URI。
  */
 async function preferSeedanceCharacterAssets(
   record: SysTaskRecord,
   refs: string[] | null | undefined,
   model: string | null | undefined,
 ): Promise<string[] | null | undefined> {
-  if (!Array.isArray(refs) || !record.storyboardId || !/^(dreamina|doubao)-seedance-2-0/i.test(String(model || ''))) {
+  if (!Array.isArray(refs) || !record.storyboardId || !/^(?:(?:seedreamina|dreamina)-seedance-2-(?:0|5)|doubao-seedance-2-0)/i.test(String(model || ''))) {
     return refs
   }
 
-  const characters = await db.select({
-    imageUrl: schema.characters.imageUrl,
-    localPath: schema.characters.localPath,
-    seedanceAssetUrl: schema.characters.seedanceAssetUrl,
-  })
+  const bindings = await db.select({ character: schema.characters })
     .from(schema.storyboardCharacters)
     .innerJoin(schema.characters, eq(schema.storyboardCharacters.characterId, schema.characters.id))
     .where(eq(schema.storyboardCharacters.storyboardId, record.storyboardId))
+  const originals = bindings.map(row => row.character)
+  const characters = await reconcileCharacterAssets(originals)
 
   const replacements = new Map<string, string>()
+  const currentCharacterAssetUrls: string[] = []
   for (const character of characters) {
     const assetUrl = String(character.seedanceAssetUrl || '').trim()
-    if (!/^asset:\/\//i.test(assetUrl)) continue
-    for (const source of [character.imageUrl, character.localPath]) {
+    const original = originals.find(item => item.id === character.id)!
+    const sources = [character.imageUrl, character.localPath, original.seedanceAssetUrl]
+    if (!/^asset:\/\//i.test(assetUrl)) {
+      // Native providers can accept ordinary images without an asset library.
+      if (character.assetLibraryStatus === 'unknown') continue
+      if (refs.some(ref => sources.some(source => source && String(ref).replace(/^\//, '') === source.replace(/^\//, '')))) {
+        throw new Error(`角色「${character.name}」素材不可用，请先上传到素材库`)
+      }
+      continue
+    }
+    currentCharacterAssetUrls.push(assetUrl)
+    for (const source of sources) {
       const value = String(source || '').trim()
       if (!value) continue
       replacements.set(value, assetUrl)
@@ -615,8 +667,21 @@ async function preferSeedanceCharacterAssets(
     }
   }
 
-  if (!replacements.size) return refs
+  if (!replacements.size && !currentCharacterAssetUrls.length) return refs
   const mapped = refs.map(ref => replacements.get(String(ref || '').trim()) || ref)
+
+  // A stale page can submit the previous asset URI directly. The URI no longer
+  // has an image URL to match, so fill stale asset slots with the current
+  // character URIs that are not already represented in this request.
+  const presentCharacterAssets = new Set(
+    mapped.map(value => String(value || '').trim()).filter(value => currentCharacterAssetUrls.includes(value)),
+  )
+  const missingCharacterAssets = currentCharacterAssetUrls.filter(assetUrl => !presentCharacterAssets.has(assetUrl))
+  for (let index = 0; index < mapped.length && missingCharacterAssets.length; index++) {
+    const value = String(mapped[index] || '').trim()
+    if (!/^asset:\/\//i.test(value) || currentCharacterAssetUrls.includes(value)) continue
+    mapped[index] = missingCharacterAssets.shift()!
+  }
   const replacedCount = mapped.filter((value, index) => value !== refs[index]).length
   if (replacedCount) {
     logTaskProgress('VideoTask', 'seedance-assets-applied', { id: record.id, storyboardId: record.storyboardId, replacedCount })

@@ -39,7 +39,7 @@ export const sqliteSchemaStatements = [
     thumbnail TEXT,
     image_config_id INTEGER,
     video_config_id INTEGER,
-    resolution TEXT DEFAULT '720p',
+    resolution TEXT DEFAULT '480p',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     deleted_at TEXT
@@ -57,6 +57,9 @@ export const sqliteSchemaStatements = [
     personality TEXT,
     image_url TEXT,
     seedance_asset_url TEXT,
+    seedance_library_asset_id TEXT,
+    seedance_previous_asset_url TEXT,
+    seedance_previous_references TEXT,
     reference_images TEXT,
     seed_value TEXT,
     sort_order INTEGER,
@@ -107,6 +110,7 @@ export const sqliteSchemaStatements = [
     first_frame_image TEXT,
     last_frame_image TEXT,
     reference_images TEXT,
+    reference_audio_urls TEXT,
     video_url TEXT,
     subtitle_url TEXT,
     composed_video_url TEXT,
@@ -395,6 +399,10 @@ export function initSqliteSchema(sqlite: Database.Database) {
     sqlite.exec(statement)
   }
   ensureColumn(sqlite, 'characters', 'seedance_asset_url', 'TEXT')
+  ensureColumn(sqlite, 'characters', 'seedance_library_asset_id', 'TEXT')
+  ensureColumn(sqlite, 'characters', 'seedance_previous_asset_url', 'TEXT')
+  ensureColumn(sqlite, 'characters', 'seedance_previous_references', 'TEXT')
+  ensureColumn(sqlite, 'storyboards', 'reference_audio_urls', 'TEXT')
   const insertSeed = sqlite.prepare(SEED_SQL)
   const upgradeSeed = sqlite.prepare(UPGRADE_SQL)
   const removeSeed = sqlite.prepare(REMOVE_SQL)

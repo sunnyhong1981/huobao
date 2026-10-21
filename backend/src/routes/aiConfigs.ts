@@ -71,16 +71,19 @@ function buildProbe(serviceType: string, provider: string, baseUrl: string, mode
   }
 
   if (p === 'volcengine') {
+    const usesDreaminaGateway = /^(?:seedreamina|dreamina)-seedance-2-(?:0|5)/i.test(m)
     const path = serviceType === 'video'
-      ? '/contents/generations/tasks'
+      ? (usesDreaminaGateway ? '/video/generations' : '/contents/generations/tasks')
       : serviceType === 'text'
         ? '/chat/completions'
         : '/images/generations'
     return {
       method: 'POST',
-      url: joinProviderUrl(baseUrl, '/api/v3', path),
+      url: usesDreaminaGateway && serviceType === 'video'
+        ? joinProviderUrl(baseUrl, '/v1', path)
+        : joinProviderUrl(baseUrl, '/api/v3', path),
       headers: bearerHeaders(apiKey, true),
-      body: {},
+      body: usesDreaminaGateway && serviceType === 'video' ? { model: m } : {},
     }
   }
 

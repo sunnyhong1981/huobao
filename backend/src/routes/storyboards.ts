@@ -4,8 +4,18 @@ import { db, getInsertId, schema } from '../db/index.js'
 import { success, created, now, badRequest } from '../utils/response.js'
 import { toSnakeCase } from '../utils/transform.js'
 import { logTaskPayload, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { createVideoRedub } from '../services/video-redub.js'
 
 const app = new Hono()
+
+app.post('/:id/redub', async (c) => {
+  try {
+    const taskId = await createVideoRedub(Number(c.req.param('id')), await c.req.json())
+    return created(c, { task_id: taskId })
+  } catch (error) {
+    return badRequest(c, error instanceof Error ? error.message : '重新配音失败')
+  }
+})
 
 async function syncStoryboardCharacters(storyboardId: number, characterIds: number[]) {
   await db.delete(schema.storyboardCharacters)
@@ -95,6 +105,7 @@ app.post('/', async (c) => {
     description: body.description,
     sceneId: body.scene_id,
     duration: body.duration || 10,
+    referenceAudioUrls: Array.isArray(body.reference_audio_urls) ? JSON.stringify(body.reference_audio_urls) : null,
     createdAt: ts,
     updatedAt: ts,
   })
@@ -134,6 +145,7 @@ app.put('/:id', async (c) => {
     image_prompt: 'imagePrompt', scene_id: 'sceneId', location: 'location',
     time: 'time', atmosphere: 'atmosphere', result: 'result',
     bgm_prompt: 'bgmPrompt', sound_effect: 'soundEffect',
+    reference_audio_urls: 'referenceAudioUrls',
     video_url: 'videoUrl',
   }
 
@@ -164,10 +176,26 @@ app.put('/:id', async (c) => {
 // DELETE /storyboards/:id
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  const [storyboard] = await db.select().from(schema.storyboards).where(eq(schema.storyboards.id, id))
+  if (!storyboard) return badRequest(c, '镜头不存在')
   logTaskStart('StoryboardAPI', 'delete', { storyboardId: id })
   await db.delete(schema.storyboardCharacters).where(eq(schema.storyboardCharacters.storyboardId, id))
   await db.delete(schema.storyboardProps).where(eq(schema.storyboardProps.storyboardId, id))
   await db.delete(schema.storyboards).where(eq(schema.storyboards.id, id))
+
+  // Keep the visible shot sequence contiguous after a deletion. Historical
+  // generation tasks and source files remain for audit and possible reuse.
+  const remaining = await db.select().from(schema.storyboards)
+    .where(eq(schema.storyboards.episodeId, storyboard.episodeId))
+    .orderBy(schema.storyboards.storyboardNumber, schema.storyboards.id)
+  const timestamp = now()
+  for (const [index, row] of remaining.entries()) {
+    const nextNumber = index + 1
+    if (row.storyboardNumber === nextNumber) continue
+    await db.update(schema.storyboards)
+      .set({ storyboardNumber: nextNumber, updatedAt: timestamp })
+      .where(eq(schema.storyboards.id, row.id))
+  }
   logTaskSuccess('StoryboardAPI', 'delete', { storyboardId: id })
   return success(c)
 })

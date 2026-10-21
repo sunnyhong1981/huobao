@@ -113,13 +113,17 @@ export function readImageAsDataUrl(relativePath: string): string {
   return `data:${mimeType};base64,${buffer.toString('base64')}`
 }
 
+export interface ImageCompressionOptions {
+  maxWidth?: number
+  maxHeight?: number
+  minWidth?: number
+  minHeight?: number
+  quality?: number
+}
+
 export async function readImageAsCompressedDataUrl(
   relativePath: string,
-  options: {
-    maxWidth?: number
-    maxHeight?: number
-    quality?: number
-  } = {},
+  options: ImageCompressionOptions = {},
 ): Promise<string> {
   return compressImageAsDataUrl(getAbsolutePath(relativePath), options)
 }
@@ -129,11 +133,7 @@ export async function readImageAsCompressedDataUrl(
  */
 export async function fetchImageAsCompressedDataUrl(
   url: string,
-  options: {
-    maxWidth?: number
-    maxHeight?: number
-    quality?: number
-  } = {},
+  options: ImageCompressionOptions = {},
 ): Promise<string> {
   const resp = await fetch(url, { signal: AbortSignal.timeout(30_000) })
   if (!resp.ok) throw new Error(`下载参考图失败: HTTP ${resp.status}`)
@@ -141,17 +141,42 @@ export async function fetchImageAsCompressedDataUrl(
 }
 
 /** sharp 输入 → 压缩 JPEG data URL（本地路径与远程下载共享同一压缩管线） */
-async function compressImageAsDataUrl(
+export async function compressImageAsDataUrl(
   input: string | Buffer,
-  options: {
-    maxWidth?: number
-    maxHeight?: number
-    quality?: number
-  } = {},
+  options: ImageCompressionOptions = {},
 ): Promise<string> {
   const maxWidth = options.maxWidth ?? 768
   const maxHeight = options.maxHeight ?? 768
   const quality = options.quality ?? 68
+
+  if (options.minWidth || options.minHeight) {
+    const minWidth = options.minWidth ?? 1
+    const minHeight = options.minHeight ?? 1
+    if (minWidth > maxWidth || minHeight > maxHeight) throw new Error('参考图片的最小尺寸不能大于最大尺寸')
+    const { data, info } = await sharp(input).rotate().resize({
+      width: maxWidth, height: maxHeight, fit: 'inside', withoutEnlargement: true,
+    }).flatten({ background: '#ffffff' }).toColourspace('srgb').raw().toBuffer({ resolveWithObject: true })
+    let image = sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } })
+    const scale = Math.max(1, minWidth / info.width, minHeight / info.height)
+    if (scale > 1) {
+      const width = Math.ceil(info.width * scale)
+      const height = Math.ceil(info.height * scale)
+      if (width <= maxWidth && height <= maxHeight) {
+        image = image.resize({ width, height, fit: 'fill' })
+      } else {
+        // Preserve very wide/tall references without exceeding the size budget.
+        const horizontal = Math.max(0, minWidth - info.width)
+        const vertical = Math.max(0, minHeight - info.height)
+        image = image.extend({
+          left: Math.floor(horizontal / 2), right: Math.ceil(horizontal / 2),
+          top: Math.floor(vertical / 2), bottom: Math.ceil(vertical / 2),
+          background: '#ffffff',
+        })
+      }
+    }
+    const output = await image.jpeg({ quality, mozjpeg: true }).toBuffer()
+    return `data:image/jpeg;base64,${output.toString('base64')}`
+  }
 
   const resized = sharp(input).rotate().resize({
     width: maxWidth,

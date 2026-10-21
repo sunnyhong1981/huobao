@@ -30,6 +30,28 @@ test('Dreamina gateway sends role-aware content for reference images', () => {
   ])
 })
 
+test('Seedreamina alias uses the Dreamina-compatible generation endpoint', () => {
+  const request = adapter.buildGenerateRequest({
+    provider: 'volcengine',
+    baseUrl: 'https://gateway.example',
+    apiKey: 'test-key',
+    model: 'seedreamina-seedance-2-0-mini-260615',
+  } as any, {
+    id: 1,
+    model: 'seedreamina-seedance-2-0-mini-260615',
+    prompt: 'A paper boat',
+    referenceImageUrls: null,
+    referenceVideoUrls: null,
+    referenceAudioUrls: null,
+    duration: 4,
+    aspectRatio: '1:1',
+    resolution: '480p',
+  } as any)
+
+  assert.equal(request.url, 'https://gateway.example/v1/video/generations')
+  assert.equal((request.body as any).model, 'seedreamina-seedance-2-0-mini-260615')
+})
+
 test('Dreamina gateway polling accepts the OpenAI-compatible task envelope', () => {
   const response = {
     code: 0,
@@ -54,5 +76,14 @@ test('Dreamina gateway polling reports a wrapped terminal failure', () => {
   }), {
     status: 'failed',
     error: 'content rejected',
+  })
+})
+
+test('Dreamina gateway treats FAILURE as a terminal failure', () => {
+  assert.deepEqual(adapter.parsePollResponse({
+    data: { status: 'FAILURE', fail_reason: 'copyright restriction' },
+  }), {
+    status: 'failed',
+    error: 'copyright restriction',
   })
 })

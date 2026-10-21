@@ -529,9 +529,9 @@
       "typeScene": "Scene asset",
       "typeProp": "Prop asset",
       "detailTitle": "{type} detail",
-      "delChar": "Delete character",
-      "delScene": "Delete scene",
-      "delProp": "Delete prop",
+      "delChar": "Remove character from this episode",
+      "delScene": "Remove scene from this episode",
+      "delProp": "Remove prop from this episode",
       "charImageTitle": "{name} character portrait",
       "sceneImageTitle": "{name} scene image",
       "propImageTitle": "{name} prop image",
@@ -548,6 +548,11 @@
       "uploadSceneImage": "Upload scene image",
       "uploadPropImage": "Upload prop image",
       "uploadImage": "Upload image",
+      "uploadToAssetLibrary": "Upload to Library",
+      "assetLibraryRequired": "Before generating video, upload this character portrait to the asset library.",
+      "assetLibraryReady": "Character asset is in the library and ready for video generation.",
+      "assetLibraryReadyShort": "In Library",
+      "assetLibraryUploadFailed": "Asset-library upload failed: {reason}",
       "appearance": "Appearance: ",
       "styling": "Styling: ",
       "lighting": "Lighting · ",
@@ -641,9 +646,9 @@
       "created": "{type} added"
     },
     "delete": {
-      "title": "Delete {type}",
-      "message": "Delete {type} “{name}”? It will be removed from all episodes of this drama.",
-      "deleted": "{type} deleted"
+      "title": "Remove {type} from this episode",
+      "message": "Remove {type} “{name}” from this episode? The asset remains in the project library and other episodes can still use it.",
+      "deleted": "{type} removed from this episode"
     },
     "sb": {
       "title": "Storyboard Breakdown",
@@ -745,6 +750,7 @@
       "genFailed": "Video generation failed",
       "referenceImagePrivacyRejected": "The video model detected a possible real person in the character references and cannot use those images. Use clearly illustrated or animated character references, or retry without character references.",
       "referenceImageRoleMissing": "Video reference image format is invalid because its reference role is missing. The issue is fixed; generate the video again.",
+      "referenceAssetUnavailable": "A reference asset is unavailable or not owned by the current video account. Upload the reference again with the current account, then retry.",
       "genTimeout": "Video generation timed out",
       "allDone": "All shot videos generated",
       "moderationHint": "Looks like a real-person/sensitive content moderation rejection — switch video model in the top bar and retry",
@@ -767,6 +773,10 @@
       "confirmNote": "Generation will start shot by shot with the above config; failed tasks can be retried later via \"Retry failed\".",
       "confirmStart": "Start ({n})",
       "selectMissing": "Select without video",
+      "deleteShot": "Delete shot",
+      "deleteShotTitle": "Delete shot #{n}",
+      "deleteShotMessage": "This removes the shot and its character/prop bindings. Remaining shots are renumbered. Historical tasks and generated video files are kept.",
+      "deleteShotDone": "Shot deleted",
       "aspectRatio": "Aspect Ratio"
     },
     "inspector": {
@@ -780,6 +790,10 @@
       "uploadRefVideo": "Upload reference video ({used}/{limit})",
       "uploadRefAudio": "Upload reference audio ({used}/{limit})",
       "refAudioHint": "Reference audio requires at least 1 reference image or video",
+      "noRefAudio": "No reference audio",
+      "removeRefAudio": "Remove reference audio",
+      "refAudioUploaded": "Reference audio added",
+      "refAudioRemoved": "Reference audio removed",
       "params": "Generation Params",
       "duration": "Shot duration",
       "durationUnit": "s (4-15)",

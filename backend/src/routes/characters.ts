@@ -65,6 +65,22 @@ app.put('/:id', async (c) => {
     if (snakeKey in body) updates[key] = body[snakeKey]
     else if (key in body) updates[key] = body[key]
   }
+  const imageChanged =
+    (updates.imageUrl !== undefined && updates.imageUrl !== existing.imageUrl) ||
+    (updates.localPath !== undefined && updates.localPath !== existing.localPath)
+  // 素材库 URI 绑定的是具体图片。更换角色图后必须重新上传，不能继续复用旧 URI。
+  if (imageChanged && updates.seedanceAssetUrl === undefined) {
+    let previousReferences: string[] = []
+    try {
+      const parsed = JSON.parse(existing.seedancePreviousReferences || '[]')
+      if (Array.isArray(parsed)) previousReferences = parsed.map(value => String(value || '').trim()).filter(Boolean)
+    } catch {}
+    updates.seedancePreviousAssetUrl = existing.seedanceAssetUrl || existing.seedancePreviousAssetUrl || null
+    updates.seedancePreviousReferences = JSON.stringify(
+      [...new Set([...previousReferences, existing.imageUrl, existing.localPath].map(value => String(value || '').trim()).filter(Boolean))],
+    )
+    updates.seedanceAssetUrl = null
+  }
   // 手动编辑最终提示词时以传入值为准。样貌或妆造变化会让旧提示词失效，
   // 让下一次生成基于最新设定重新生成它。
   if (body.final_prompt !== undefined) updates.finalPrompt = body.final_prompt || null

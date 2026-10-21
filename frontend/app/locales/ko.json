@@ -529,9 +529,9 @@
       "typeScene": "장면 에셋",
       "typeProp": "소품 에셋",
       "detailTitle": "{type} 상세",
-      "delChar": "캐릭터 삭제",
-      "delScene": "장면 삭제",
-      "delProp": "소품 삭제",
+      "delChar": "현재 화에서 캐릭터 제외",
+      "delScene": "현재 화에서 장면 제외",
+      "delProp": "현재 화에서 소품 제외",
       "charImageTitle": "{name} 캐릭터 이미지",
       "sceneImageTitle": "{name} 장면 이미지",
       "propImageTitle": "{name} 소품 이미지",
@@ -548,6 +548,11 @@
       "uploadSceneImage": "장면 이미지 업로드",
       "uploadPropImage": "소품 이미지 업로드",
       "uploadImage": "이미지 업로드",
+      "uploadToAssetLibrary": "소재 라이브러리에 업로드",
+      "assetLibraryRequired": "영상 생성 전에 이 캐릭터 이미지를 소재 라이브러리에 업로드하세요.",
+      "assetLibraryReady": "캐릭터 소재가 라이브러리에 등록되어 영상 생성에 사용할 수 있습니다.",
+      "assetLibraryReadyShort": "등록됨",
+      "assetLibraryUploadFailed": "소재 라이브러리 업로드 실패: {reason}",
       "appearance": "외모: ",
       "styling": "스타일링: ",
       "lighting": "조명 · ",
@@ -641,9 +646,9 @@
       "created": "{type}이(가) 추가되었습니다"
     },
     "delete": {
-      "title": "{type} 삭제",
-      "message": "{type} 「{name}」을(를) 삭제하시겠습니까? 이 작품의 모든 화에서 제거됩니다.",
-      "deleted": "{type}이(가) 삭제되었습니다"
+      "title": "현재 화에서 {type} 제외",
+      "message": "현재 화에서 {type} 「{name}」을(를) 제외하시겠습니까? 소재는 프로젝트에 남으며 다른 화에서도 사용할 수 있습니다.",
+      "deleted": "현재 화에서 {type}이(가) 제외되었습니다"
     },
     "sb": {
       "title": "스토리보드 분해",
@@ -745,6 +750,7 @@
       "genFailed": "영상 생성에 실패했습니다",
       "referenceImagePrivacyRejected": "영상 모델이 캐릭터 참고 이미지를 실제 인물이 포함되었을 가능성이 있는 이미지로 감지하여 사용할 수 없습니다. 명확한 일러스트 또는 애니메이션 스타일 이미지로 바꾸거나 캐릭터 참고 이미지 없이 다시 시도하세요.",
       "referenceImageRoleMissing": "영상 참고 이미지 형식이 올바르지 않습니다. 참고 이미지 role이 누락되었습니다. 수정했으니 다시 생성하세요.",
+      "referenceAssetUnavailable": "참조 소재를 사용할 수 없거나 현재 영상 계정에 속하지 않습니다. 현재 계정으로 다시 업로드한 뒤 재시도하세요.",
       "genTimeout": "영상 생성 시간이 초과되었습니다",
       "allDone": "모든 샷 영상이 생성되었습니다",
       "moderationHint": "실사 인물/민감 콘텐츠 심사에 걸렸을 수 있습니다. 상단 바에서 다른 영상 모델로 전환 후 다시 시도하세요",
@@ -767,6 +773,10 @@
       "confirmNote": "위 설정으로 샷별로 생성을 시작합니다. 실패한 작업은 나중에 「실패 재시도」로 한 번에 다시 실행할 수 있습니다.",
       "confirmStart": "생성 시작 ({n})",
       "selectMissing": "미생성 선택",
+      "deleteShot": "샷 삭제",
+      "deleteShotTitle": "샷 #{n} 삭제",
+      "deleteShotMessage": "이 샷과 캐릭터/소품 연결을 삭제합니다. 남은 샷은 자동으로 번호가 다시 매겨집니다. 기록 작업과 생성된 영상 파일은 유지됩니다.",
+      "deleteShotDone": "샷을 삭제했습니다",
       "aspectRatio": "화면 비율"
     },
     "inspector": {
@@ -780,6 +790,10 @@
       "uploadRefVideo": "참조 영상 업로드 ({used}/{limit})",
       "uploadRefAudio": "참조 오디오 업로드 ({used}/{limit})",
       "refAudioHint": "참조 오디오에는 참조 이미지 또는 영상이 1개 이상 필요합니다",
+      "noRefAudio": "참조 오디오 없음",
+      "removeRefAudio": "참조 오디오 제거",
+      "refAudioUploaded": "참조 오디오가 추가되었습니다",
+      "refAudioRemoved": "참조 오디오가 제거되었습니다",
       "params": "생성 파라미터",
       "duration": "분镜 길이",
       "durationUnit": "초(4-15)",

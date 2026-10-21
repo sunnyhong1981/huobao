@@ -37,7 +37,7 @@ export const episodes = sqliteTable('episodes', {
   thumbnail: text('thumbnail'),
   imageConfigId: integer('image_config_id'),
   videoConfigId: integer('video_config_id'),
-  resolution: text('resolution').default('720p'),
+  resolution: text('resolution').default('480p'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
   deletedAt: text('deleted_at'),
@@ -55,6 +55,11 @@ export const characters = sqliteTable('characters', {
   personality: text('personality'),
   imageUrl: text('image_url'),
   seedanceAssetUrl: text('seedance_asset_url'),
+  // `asset://` is the upstream reference used for generation. The asset API
+  // deletes by its own item ID, so retain both IDs on the character.
+  seedanceLibraryAssetId: text('seedance_library_asset_id'),
+  seedancePreviousAssetUrl: text('seedance_previous_asset_url'),
+  seedancePreviousReferences: text('seedance_previous_references'),
   referenceImages: text('reference_images'),
   seedValue: text('seed_value'),
   sortOrder: integer('sort_order'),
@@ -129,6 +134,7 @@ export const storyboards = sqliteTable('storyboards', {
   firstFrameImage: text('first_frame_image'),
   lastFrameImage: text('last_frame_image'),
   referenceImages: text('reference_images'),
+  referenceAudioUrls: text('reference_audio_urls'),
   videoUrl: text('video_url'),
   subtitleUrl: text('subtitle_url'),
   composedVideoUrl: text('composed_video_url'),

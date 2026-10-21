@@ -5,12 +5,15 @@ import assert from 'node:assert/strict'
 const root = new URL('..', import.meta.url)
 const read = (path) => readFileSync(new URL(path, root), 'utf8')
 
-test('volcengine video adapter only supports Seedance 2.0 models and reference mode only', () => {
+test('volcengine video adapter supports Seedance 2.x models and reference mode only', () => {
   const adapter = read('src/services/adapters/volcengine-video.ts')
 
-  // 模型白名单：仅 doubao-seedance-2-0-* 前缀
-  assert.match(adapter, /SEEDANCE2_MODEL_PREFIX = 'doubao-seedance-2-0'/)
-  assert.match(adapter, /startsWith\(SEEDANCE2_MODEL_PREFIX\)/)
+  // 模型白名单：官方 Doubao 与 Dreamina/Seedreamina 兼容网关前缀
+  assert.match(adapter, /SEEDANCE2_MODEL_PREFIXES/)
+  assert.match(adapter, /'doubao-seedance-2-0'/)
+  assert.match(adapter, /'dreamina-seedance-2-0'/)
+  assert.match(adapter, /'seedreamina-seedance-2-0'/)
+  assert.match(adapter, /startsWith\(prefix\)/)
 
   // 只保留多模态参考：其他模式分支与历史映射已清理
   assert.doesNotMatch(adapter, /mode === 'text'/)
@@ -30,10 +33,10 @@ test('volcengine video adapter only supports Seedance 2.0 models and reference m
   assert.match(adapter, /参考音频需要至少 1 个参考图片或视频/)
   assert.match(adapter, /多模态参考模式需要至少一个参考素材或 prompt/)
 
-  // generate_audio 可配置（默认开），时长支持 4-15 秒；分辨率随集固定（480p/720p，默认 720p）
+  // generate_audio 可配置（默认开），时长支持 4-15 秒；分辨率随集固定（480p/720p，默认 480p）
   assert.match(adapter, /generate_audio:\s*record\.generateAudio/)
   assert.match(adapter, /Math\.min\(15, Math\.max\(4, parsed\)\)/)
-  assert.match(adapter, /resolution: record\.resolution === '480p' \? '480p' : '720p'/)
+  assert.match(adapter, /const resolution = record\.resolution === '480p' \? '480p' : '720p'/)
 })
 
 test('video generation service resolves reference media and persists new fields', () => {
@@ -55,8 +58,9 @@ test('video resolution is fixed per episode, editable, and locked into video tas
   const tasks = read('src/routes/tasks.ts')
   const service = read('src/services/generation.ts')
 
-  // 创建集时固定（默认 720p，仅接受 480p/720p）
+  // 创建集时固定（默认 480p，仅接受 480p/720p）
   assert.match(episodes, /\['480p', '720p', '1080p'\]\.includes\(body\.resolution\)/)
+  assert.match(episodes, /includes\(body\.resolution\) \? body\.resolution : '480p'/)
   // PUT 可修改，白名单校验
   assert.match(episodes, /'status', 'resolution'\]/)
   assert.match(episodes, /resolution 只支持 480p \/ 720p/)
@@ -77,6 +81,17 @@ test('upload route exposes validated video and audio endpoints', () => {
   assert.match(route, /AUDIO_EXT = new Set\(\['\.mp3', '\.wav', '\.m4a', '\.aac'\]\)/)
   assert.match(route, /50 \* 1024 \* 1024/)
   assert.match(route, /20 \* 1024 \* 1024/)
+})
+
+test('storyboards persist reference audio URLs for video generation', () => {
+  const schema = read('src/db/schema.ts')
+  const sqliteSchema = read('src/db/sqlite-schema.ts')
+  const storyboards = read('src/routes/storyboards.ts')
+
+  assert.match(schema, /referenceAudioUrls: text\('reference_audio_urls'\)/)
+  assert.match(sqliteSchema, /reference_audio_urls TEXT/)
+  assert.match(sqliteSchema, /ensureColumn\(sqlite, 'storyboards', 'reference_audio_urls', 'TEXT'\)/)
+  assert.match(storyboards, /reference_audio_urls: 'referenceAudioUrls'/)
 })
 
 test('tasks route validates reference-mode requirements for video tasks', () => {

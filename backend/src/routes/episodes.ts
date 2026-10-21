@@ -6,8 +6,27 @@ import { toSnakeCaseArray, toSnakeCase } from '../utils/transform.js'
 import { getActiveConfigId } from '../services/ai.js'
 import { EXTRACT_TARGETS, getExtractionStatus, startExtraction, type ExtractTarget } from '../services/extraction.js'
 import { getVideoPromptBatchStatus, startVideoPromptBatch } from '../services/video-prompts.js'
+import { reconcileCharacterAssets } from '../services/character-asset-references.js'
+import { associateProjectAsset, selectProjectAsset } from '../services/project-assets.js'
 
 const app = new Hono()
+
+app.post('/:id/assets', async (c) => {
+  try {
+    const body = await c.req.json()
+    return success(c, await selectProjectAsset(Number(c.req.param('id')), body.kind, body.asset_id))
+  } catch (error) {
+    return badRequest(c, error instanceof Error ? error.message : '关联素材失败')
+  }
+})
+
+app.delete('/:id/assets/:kind/:assetId', (c) => {
+  try {
+    return success(c, associateProjectAsset(Number(c.req.param('id')), c.req.param('kind'), Number(c.req.param('assetId')), true))
+  } catch (error) {
+    return badRequest(c, error instanceof Error ? error.message : '移出素材失败')
+  }
+})
 
 // POST /episodes — Create a new episode
 app.post('/', async (c) => {
@@ -34,7 +53,7 @@ app.post('/', async (c) => {
     imageConfigId,
     videoConfigId,
     // 视频分辨率在创建集时固定（480p/720p/1080p），后续可通过 PUT 修改；各视频适配器再映射为厂商档位
-    resolution: ['480p', '720p', '1080p'].includes(body.resolution) ? body.resolution : '720p',
+    resolution: ['480p', '720p', '1080p'].includes(body.resolution) ? body.resolution : '480p',
     createdAt: ts,
     updatedAt: ts,
   })
@@ -98,7 +117,12 @@ app.get('/:id/characters', async (c) => {
   if (!charIds.length) return success(c, [])
   const allChars = await db.select().from(schema.characters)
   const result = allChars.filter(ch => charIds.includes(ch.id) && !ch.deletedAt)
-  return success(c, toSnakeCaseArray(result))
+  try {
+    return success(c, toSnakeCaseArray(await reconcileCharacterAssets(result, false)))
+  } catch (error) {
+    console.warn('Character asset verification failed:', error instanceof Error ? error.message : error)
+    return success(c, toSnakeCaseArray(result.map(ch => ({ ...ch, assetLibraryStatus: 'unknown' }))))
+  }
 })
 
 // GET /episodes/:id/scenes — scenes linked to this episode

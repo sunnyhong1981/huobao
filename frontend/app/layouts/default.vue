@@ -4,14 +4,8 @@
     <header class="header">
       <div class="header-left">
         <button class="brand" @click="navigateTo('/')">
-          <div class="brand-mark">
-            <img v-if="showBrandImage" :src="brandLogo" alt="Qunl 短剧" class="brand-logo" @error="showBrandImage = false" />
-            <span v-else class="brand-fallback">Q</span>
-          </div>
-          <div class="brand-text">
-            <span class="brand-name">Qunl 短剧</span>
-            <span class="brand-sub">Qunl Drama</span>
-          </div>
+          <img v-if="showBrandImage" :src="brandLogo" alt="鲲灵短剧" class="brand-logo" @error="showBrandImage = false" />
+          <span v-else class="brand-fallback">鲲灵短剧</span>
         </button>
       </div>
 
@@ -59,7 +53,7 @@
 import { LayoutGrid, Settings, TriangleAlert, Github } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { aiConfigAPI } from '~/composables/useApi'
-import brandLogo from '~/assets/huobao-logo.png'
+import brandLogo from '~/assets/kunling-logo.png'
 
 const { t, locale } = useI18n()
 const route = useRoute()
@@ -113,7 +107,7 @@ watch(locale, checkAiConfigs)
 .header-left { display: flex; align-items: center; }
 
 .brand {
-  display: flex; align-items: center; gap: 11px;
+  display: flex; align-items: center;
   background: transparent; border: none; cursor: pointer; padding: 4px 8px 4px 4px;
   text-decoration: none; border-radius: var(--radius);
   transition: background 0.18s var(--ease-out);
@@ -123,38 +117,17 @@ watch(locale, checkAiConfigs)
   outline: none;
   box-shadow: 0 0 0 3.5px var(--button-focus);
 }
-.brand-mark {
-  width: 32px; height: 32px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 9px;
-  overflow: hidden;
-}
 .brand-logo {
-  width: 28px;
-  height: 28px;
+  width: 140px;
+  height: 40px;
   object-fit: contain;
   display: block;
 }
 .brand-fallback {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
-  color: var(--text-0);
+  color: var(--accent-solid);
   line-height: 1;
-}
-.brand-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
-.brand-name {
-  font-size: 15px; font-weight: 700;
-  /* ChatFire 签名：品牌字标火焰橙渐变 */
-  background: var(--accent-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  letter-spacing: -0.01em;
-}
-.brand-sub {
-  font-size: 10px; font-weight: 400;
-  color: var(--text-3); margin-top: 1px;
-  letter-spacing: 0.04em;
 }
 
 /* Nav — pill segmented group */

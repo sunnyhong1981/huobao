@@ -529,9 +529,9 @@
       "typeScene": "场景资产",
       "typeProp": "道具资产",
       "detailTitle": "{type}详情",
-      "delChar": "删除角色",
-      "delScene": "删除场景",
-      "delProp": "删除道具",
+      "delChar": "移出本集角色",
+      "delScene": "移出本集场景",
+      "delProp": "移出本集道具",
       "charImageTitle": "{name} 角色形象",
       "sceneImageTitle": "{name} 场景图",
       "propImageTitle": "{name} 道具图",
@@ -548,6 +548,11 @@
       "uploadSceneImage": "上传场景图",
       "uploadPropImage": "上传道具图",
       "uploadImage": "上传图片",
+      "uploadToAssetLibrary": "上传素材库",
+      "assetLibraryRequired": "视频生成前，请先点击“上传素材库”上传角色形象。",
+      "assetLibraryReady": "角色素材已入库，可用于视频生成。",
+      "assetLibraryReadyShort": "已入库",
+      "assetLibraryUploadFailed": "素材库上传失败：{reason}",
       "appearance": "样貌：",
       "styling": "妆造：",
       "lighting": "光照 · ",
@@ -641,9 +646,9 @@
       "created": "已新增{type}"
     },
     "delete": {
-      "title": "删除{type}",
-      "message": "确定删除{type}「{name}」吗？将从本剧所有集中移除。",
-      "deleted": "已删除{type}"
+      "title": "移出本集{type}",
+      "message": "确定将{type}「{name}」移出本集吗？素材会保留在项目素材库，其它剧集仍可使用。",
+      "deleted": "已移出本集{type}"
     },
     "sb": {
       "title": "分镜拆分",
@@ -745,6 +750,7 @@
       "genFailed": "视频生成失败",
       "referenceImagePrivacyRejected": "当前视频模型将角色参考图识别为可能包含真人，无法使用这些图片。请改用明显的动画/插画角色图，或取消角色参考图后重试。",
       "referenceImageRoleMissing": "视频参考图片格式不正确，缺少参考图片标记。已修复，请重新生成视频。",
+      "referenceAssetUnavailable": "参考素材不可用，或不属于当前视频账号。请重新上传参考图到当前账号后重试。",
       "genTimeout": "视频生成超时",
       "allDone": "所有镜头视频已生成",
       "moderationHint": "疑似真人/敏感内容审核未通过，可在顶栏切换其他视频模型后重试",
@@ -767,6 +773,10 @@
       "confirmNote": "将按以上配置逐镜头发起生成；失败的任务之后可点「重试失败」一键重跑。",
       "confirmStart": "开始生成 ({n})",
       "selectMissing": "选未生成",
+      "deleteShot": "删除镜头",
+      "deleteShotTitle": "删除镜头 #{n}",
+      "deleteShotMessage": "将删除此分镜及其角色、道具绑定；剩余镜头会自动重新编号。历史任务和已生成视频文件会保留。",
+      "deleteShotDone": "镜头已删除",
       "aspectRatio": "画面比例"
     },
     "inspector": {
@@ -780,6 +790,10 @@
       "uploadRefVideo": "上传参考视频 ({used}/{limit})",
       "uploadRefAudio": "上传参考音频 ({used}/{limit})",
       "refAudioHint": "参考音频需至少 1 个参考图片或视频",
+      "noRefAudio": "暂无参考音频",
+      "removeRefAudio": "移除参考音频",
+      "refAudioUploaded": "参考音频已添加",
+      "refAudioRemoved": "参考音频已移除",
       "params": "生成参数",
       "duration": "分镜时长",
       "durationUnit": "s（4-15）",

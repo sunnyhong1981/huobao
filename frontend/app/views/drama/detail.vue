@@ -13,11 +13,11 @@
         <div class="page-meta">
           <span class="meta-item">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            {{ t('detail.head.charCount', { n: drama.characters?.length || 0 }) }}
+            {{ t('detail.head.charCount', { n: (drama.characters || []).filter(asset => !asset.deleted_at && !asset.deletedAt).length }) }}
           </span>
           <span class="meta-item">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>
-            {{ t('detail.head.sceneCount', { n: drama.scenes?.length || 0 }) }}
+            {{ t('detail.head.sceneCount', { n: (drama.scenes || []).filter(asset => !asset.deleted_at && !asset.deletedAt).length }) }}
           </span>
           <span class="meta-item">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.5"/><line x1="7" y1="8" x2="7" y2="16"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
@@ -173,6 +173,11 @@
 
     <!-- 素材库 -->
     <div v-else-if="activeTab === 'assets'" class="assets-wrap">
+      <div class="project-library-actions">
+        <span>项目共享素材</span>
+        <button v-for="kind in ['character', 'scene', 'prop']" :key="kind" type="button" class="btn btn-sm" @click="projectAssetCreate = { open: true, kind }"><Plus :size="12" />新增{{ { character: '角色', scene: '场景', prop: '道具' }[kind] }}</button>
+        <button type="button" class="btn btn-sm" @click="assetTab = 'audio'"><Music2 :size="12" />音频素材</button>
+      </div>
       <div class="seg asset-filter">
         <button
           v-for="t in assetTabs"
@@ -185,7 +190,8 @@
       </div>
 
       <!-- 全部素材为空 -->
-      <div v-if="!materials.length" class="empty-state">
+      <ProjectAudioLibrary v-if="assetTab === 'all' || assetTab === 'audio'" class="project-audio-band" :project-id="dramaId" :media-url="mediaUrl" />
+      <div v-if="!materials.length && assetTab !== 'audio'" class="empty-state">
         <div class="empty-icon">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
@@ -250,6 +256,10 @@
                         <span v-if="isUploading(m)" class="ring-spinner sm"></span>
                         <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         {{ t('episode.asset.upload') }}
+                      </button>
+                      <button class="btn btn-sm" type="button" :disabled="hasProjectLibraryAsset(m) || !matHasImage(m) || projectLibraryUploadIds.includes(m.id)" @click.stop="uploadProjectCharacter(m)">
+                        <span v-if="projectLibraryUploadIds.includes(m.id)" class="ring-spinner sm"></span>
+                        {{ hasProjectLibraryAsset(m) ? '已入库' : '上传素材库' }}
                       </button>
                     </div>
                   </div>
@@ -319,7 +329,7 @@
         </template>
 
         <!-- 筛选某一类但该类暂无素材 -->
-        <div v-if="assetTab !== 'all' && !visibleAssets.length" class="empty-state">
+        <div v-if="assetTab !== 'all' && assetTab !== 'audio' && !visibleAssets.length" class="empty-state">
           <div class="empty-icon">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
@@ -349,6 +359,7 @@
           </header>
 
           <div class="dialog-body mat-detail-body">
+            <p class="project-shared-note">这是项目共享素材，修改图片或资料会影响其它引用它的剧集。</p>
             <div class="mat-detail-shell">
               <!-- 左侧：视觉预览 -->
               <aside class="mat-detail-preview-panel">
@@ -521,6 +532,8 @@
       </div>
     </div>
 
+    <CreateProjectAssetDialog :open="projectAssetCreate.open" :kind="projectAssetCreate.kind" :drama-id="dramaId" @close="projectAssetCreate.open = false" @saved="load" />
+
     <div v-if="addDialog" class="overlay" @click.self="addDialog = false">
       <div class="dialog ep-dialog">
         <div class="dialog-head">
@@ -563,9 +576,10 @@
 
 <script setup>
 import { toast } from 'vue-sonner'
-import { toastError } from '~/composables/useToast'
+import { assetLibraryUploadError, toastError } from '~/composables/useToast'
 import { useI18n } from 'vue-i18n'
-import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI, taskAPI, uploadAPI } from '~/composables/useApi'
+import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI, taskAPI, uploadAPI, assetLibraryAPI } from '~/composables/useApi'
+import { Plus, Music2 } from 'lucide-vue-next'
 import BaseSelect from '~/components/BaseSelect.vue'
 
 const { t, locale } = useI18n()
@@ -584,7 +598,7 @@ const resolutionOptions = computed(() => ([
   { label: t('detail.ep.res720'), value: '720p' },
   { label: t('detail.ep.res480'), value: '480p' },
 ]))
-const newEpisodeResolution = ref('720p')
+const newEpisodeResolution = ref('480p')
 const epResMenuId = ref(null)
 
 function epResolution(ep) { return ep.resolution === '480p' ? '480p' : '720p' }
@@ -639,9 +653,27 @@ async function setEpisodeStatus(ep, status) {
   }
 }
 
+let handledProjectAssetQuery = false
 async function load() {
   try {
     drama.value = await dramaAPI.get(dramaId)
+    try { drama.value.characters = await assetLibraryAPI.projectCharacters(dramaId) } catch {}
+    await nextTick()
+    const kind = String(route.query.asset_kind || '')
+    const id = Number(route.query.asset_id)
+    const target = materials.value.find(asset => asset.kindKey === kind && asset.id === id)
+    if (target && !handledProjectAssetQuery) {
+      handledProjectAssetQuery = true
+      activeTab.value = 'assets'
+      assetTab.value = kind
+      openEdit(target)
+    }
+    const createKind = String(route.query.create_kind || '')
+    if (!handledProjectAssetQuery && ['character', 'scene', 'prop'].includes(createKind)) {
+      handledProjectAssetQuery = true
+      activeTab.value = 'assets'
+      projectAssetCreate.value = { open: true, kind: createKind }
+    }
   } catch (e) {
     toastError(e)
   }
@@ -649,7 +681,7 @@ async function load() {
 
 function openAddEpisode() {
   newEpisodeTitle.value = ''
-  newEpisodeResolution.value = '720p'
+  newEpisodeResolution.value = '480p'
   addDialog.value = true
 }
 
@@ -689,8 +721,21 @@ async function confirmDelEpisode() {
 }
 
 /* ===== 素材库 Tab ===== */
-const activeTab = ref('episodes')
-const assetTab = ref('all')
+const activeTab = ref(route.query.tab === 'assets' ? 'assets' : 'episodes')
+const projectAssetCreate = ref({ open: false, kind: 'scene' })
+const projectLibraryUploadIds = ref([])
+function hasProjectLibraryAsset(asset) { return (asset.asset_library_status || asset.assetLibraryStatus) === 'available' }
+async function uploadProjectCharacter(asset) {
+  if (hasProjectLibraryAsset(asset) || !matHasImage(asset) || projectLibraryUploadIds.value.includes(asset.id)) return
+  projectLibraryUploadIds.value.push(asset.id)
+  try {
+    const result = await assetLibraryAPI.uploadCharacter(asset.id)
+    toast.success(result.reused ? '已复用项目已有素材' : '角色已上传素材库，各集可共享使用')
+    await load()
+  } catch (e) { toast.error(assetLibraryUploadError(e), { duration: 10_000 }) }
+  finally { projectLibraryUploadIds.value = projectLibraryUploadIds.value.filter(id => id !== asset.id) }
+}
+const assetTab = ref(route.query.asset_kind === 'audio' ? 'audio' : 'all')
 const assetViewer = ref({ open: false, src: '', title: '' })
 const pendingMaterials = ref(new Set())
 const assetTabs = computed(() => ([
@@ -698,6 +743,7 @@ const assetTabs = computed(() => ([
   { label: t('common.role'), value: 'character' },
   { label: t('common.scene'), value: 'scene' },
   { label: t('common.prop'), value: 'prop' },
+  { label: '音频', value: 'audio' },
 ]))
 const KIND_ORDER = { character: 0, scene: 1, prop: 2 }
 
@@ -725,9 +771,9 @@ const materials = computed(() => {
   const d = drama.value
   if (!d) return []
   const list = []
-  for (const c of d.characters || []) list.push({ ...c, kind: t('common.role'), kindKey: 'character' })
-  for (const s of d.scenes || []) list.push({ ...s, kind: t('common.scene'), kindKey: 'scene' })
-  for (const p of d.props || []) list.push({ ...p, kind: t('common.prop'), kindKey: 'prop' })
+  for (const c of d.characters || []) if (!c.deleted_at && !c.deletedAt) list.push({ ...c, kind: t('common.role'), kindKey: 'character' })
+  for (const s of d.scenes || []) if (!s.deleted_at && !s.deletedAt) list.push({ ...s, kind: t('common.scene'), kindKey: 'scene' })
+  for (const p of d.props || []) if (!p.deleted_at && !p.deletedAt) list.push({ ...p, kind: t('common.prop'), kindKey: 'prop' })
   return list.sort((a, b) => (KIND_ORDER[a.kindKey] - KIND_ORDER[b.kindKey]) || (a.id - b.id))
 })
 const visibleAssets = computed(() =>
@@ -928,6 +974,10 @@ onMounted(load)
 </script>
 
 <style scoped>
+.project-audio-band { padding: 12px 0 24px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+.project-shared-note { margin: 0 0 12px; color: var(--text-3); font-size: 12px; line-height: 1.5; }
+.project-library-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.project-library-actions > span { margin-right: auto; font-size: 12px; color: var(--text-3); }
 .page {
   padding: 20px 28px 40px;
   overflow-y: auto;
@@ -1298,6 +1348,7 @@ onMounted(load)
 }
 .character-asset-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -1305,6 +1356,7 @@ onMounted(load)
 }
 .character-title-block {
   min-width: 0;
+  flex: 1 1 100%;
   display: flex;
   flex-direction: column;
   gap: 4px;

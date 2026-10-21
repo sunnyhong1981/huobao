@@ -33,6 +33,25 @@ function messageOf(err: unknown): string {
   return String(anyErr.message ?? anyErr.error_msg ?? anyErr.errorMsg ?? err)
 }
 
+/** Preserve the upstream reason for asset-library operations so upload failures
+ * are actionable instead of collapsing into the generic error toast. */
+export function assetLibraryUploadError(err: unknown): string {
+  const raw = messageOf(err).trim()
+  const payload = raw.replace(/^API error \d+:\s*/i, '').trim()
+  let reason = ''
+  try {
+    const parsed = JSON.parse(payload)
+    reason = String(parsed?.message || parsed?.error?.message || '').trim()
+  } catch {}
+  if (!reason) {
+    const match = raw.match(/"message"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/i)?.[1]
+    reason = match ? match.replace(/\\(["\\])/g, '$1') : payload
+  }
+  reason = reason.replace(/^素材库上传失败[:：]?\s*/i, '').trim()
+  if (reason.length > 240) reason = `${reason.slice(0, 237)}...`
+  return reason ? `素材库上传失败：${reason}` : '素材库上传失败，请重试'
+}
+
 /**
  * 错误 → 友好文案。分类按优先级短路：
  * 网络 → 非JSON → 审核 → 鉴权 → 限频 → 5xx → 超时 → 短中文透传 → 状态码 → 兜底

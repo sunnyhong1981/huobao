@@ -40,3 +40,16 @@ test('props route supports manual create and soft delete', () => {
   assert.match(route, /deletedAt: now\(\)/)
   assert.doesNotMatch(route, /db\.delete\(schema\.props\)/)
 })
+
+test('asset-library uploads do not use an async SQLite transaction', () => {
+  const route = read('src/services/character-asset-upload.ts')
+
+  assert.doesNotMatch(route, /db\.transaction\(async/)
+  assert.match(route, /seedanceAssetUrl: uploaded\.assetUrl/)
+  assert.match(route, /await syncCharacterVideoReferences\(character, uploaded\.assetUrl\)/)
+  assert.match(route, /const existingAssetUrl/)
+  assert.match(route, /reused: true/)
+  assert.match(route, /deleteAssetLibraryItem\(previousLibraryAssetId\)/)
+  assert.match(route, /seedanceLibraryAssetId: uploaded\.libraryAssetId/)
+  assert.match(route, /seedancePreviousReferences: null/)
+})

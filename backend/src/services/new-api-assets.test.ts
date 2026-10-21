@@ -34,7 +34,7 @@ test('uploads a local character image to the configured new-api asset group', as
 
     const { uploadCharacterAsset } = await import('./new-api-assets.js')
     const result = await uploadCharacterAsset({ imageUrl: 'https://source.example.test/character.png', name: '测试角色' })
-    assert.deepEqual(result, { assetId: 'asset-456', assetUrl: 'asset://asset-456' })
+    assert.deepEqual(result, { assetId: 'asset-456', assetUrl: 'asset://asset-456', libraryAssetId: '456' })
   } finally {
     globalThis.fetch = originalFetch
     if (originalBaseURL === undefined) delete process.env.NEW_API_ASSET_BASE_URL
@@ -77,7 +77,7 @@ test('creates a BytePlus asset from a public image URL', async () => {
 
     const { uploadCharacterAsset } = await import('./new-api-assets.js')
     const result = await uploadCharacterAsset({ imageUrl: 'static/images/character.png', name: '测试角色' })
-    assert.deepEqual(result, { assetId: 'asset-456', assetUrl: 'asset://asset-456' })
+    assert.deepEqual(result, { assetId: 'asset-456', assetUrl: 'asset://asset-456', libraryAssetId: '456' })
   } finally {
     globalThis.fetch = originalFetch
     for (const [key, value] of Object.entries({
@@ -90,5 +90,37 @@ test('creates a BytePlus asset from a public image URL', async () => {
       if (value === undefined) delete process.env[key]
       else process.env[key] = value
     }
+  }
+})
+
+test('deletes a replaced asset by its asset-library item ID', async () => {
+  const originalFetch = globalThis.fetch
+  const originalBaseURL = process.env.NEW_API_ASSET_BASE_URL
+  const originalToken = process.env.NEW_API_ASSET_TOKEN
+  const originalGroupID = process.env.NEW_API_ASSET_GROUP_ID
+  process.env.NEW_API_ASSET_BASE_URL = 'https://assets.example.test/'
+  process.env.NEW_API_ASSET_TOKEN = 'test-token'
+  process.env.NEW_API_ASSET_GROUP_ID = 'group-123'
+
+  try {
+    globalThis.fetch = (async (input, init) => {
+      assert.equal(String(input), 'https://assets.example.test/api/assets/items/456')
+      assert.equal(init?.method, 'DELETE')
+      assert.equal((init?.headers as Record<string, string>).Authorization, 'Bearer test-token')
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }) as typeof fetch
+
+    const { deleteAssetLibraryItem } = await import('./new-api-assets.js')
+    await deleteAssetLibraryItem('456')
+  } finally {
+    globalThis.fetch = originalFetch
+    if (originalBaseURL === undefined) delete process.env.NEW_API_ASSET_BASE_URL
+    else process.env.NEW_API_ASSET_BASE_URL = originalBaseURL
+    if (originalToken === undefined) delete process.env.NEW_API_ASSET_TOKEN
+    else process.env.NEW_API_ASSET_TOKEN = originalToken
+    if (originalGroupID === undefined) delete process.env.NEW_API_ASSET_GROUP_ID
+    else process.env.NEW_API_ASSET_GROUP_ID = originalGroupID
   }
 })

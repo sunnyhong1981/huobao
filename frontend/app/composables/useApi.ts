@@ -48,6 +48,8 @@ export const dramaAPI = {
 }
 
 export const episodeAPI = {
+  linkAsset: (id: number, kind: 'character' | 'scene' | 'prop', assetId: number) => api.post(`/episodes/${id}/assets`, { kind, asset_id: assetId }),
+  unlinkAsset: (id: number, kind: 'character' | 'scene' | 'prop', assetId: number) => api.del(`/episodes/${id}/assets/${kind}/${assetId}`),
   create: (data: any) => api.post('/episodes', data),
   update: (id: number, data: any) => api.put(`/episodes/${id}`, data),
   del: (id: number) => api.del(`/episodes/${id}`),
@@ -63,6 +65,8 @@ export const episodeAPI = {
 }
 
 export const storyboardAPI = {
+  redub: (id: number, data: { audio_url: string; source_video_url: string; offset_seconds: number; volume: number }) =>
+    api.post<{ task_id: number }>(`/storyboards/${id}/redub`, data),
   create: (data: any) => api.post('/storyboards', data),
   update: (id: number, data: any) => api.put(`/storyboards/${id}`, data),
   del: (id: number) => api.del(`/storyboards/${id}`),
@@ -129,7 +133,13 @@ export const uploadAPI = {
 }
 
 export const assetLibraryAPI = {
-  uploadCharacter: (id: number) => api.post<{ asset_id: string; asset_url: string }>(`/asset-library/characters/${id}/upload`),
+  audio: (id: number) => api.get<any[]>(`/asset-library/projects/${id}/audio`),
+  addAudio: (id: number, data: { name: string; path: string }) => api.post(`/asset-library/projects/${id}/audio`, data),
+  renameAudio: (id: number, assetId: number, name: string) => api.put(`/asset-library/projects/${id}/audio/${assetId}`, { name }),
+  deleteAudio: (id: number, assetId: number) => api.del(`/asset-library/projects/${id}/audio/${assetId}`),
+  setShotAudio: (id: number, assetIds: number[]) => api.put<{ reference_audio_urls: string[] }>(`/asset-library/storyboards/${id}/audio`, { asset_ids: assetIds }),
+  projectCharacters: (id: number) => api.get<any[]>(`/asset-library/projects/${id}/characters`),
+  uploadCharacter: (id: number) => api.post<{ asset_id: string; asset_url: string; reused?: boolean; synced_storyboard_count?: number; cleanup_warning?: string }>(`/asset-library/characters/${id}/upload`),
 }
 export const mergeAPI = {
   merge: (epId: number, storyboardIds?: number[]) => api.post(`/merge/episodes/${epId}/merge`, storyboardIds?.length ? { storyboard_ids: storyboardIds } : {}),
