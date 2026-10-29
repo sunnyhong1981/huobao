@@ -751,6 +751,7 @@
       "referenceImagePrivacyRejected": "当前视频模型将角色参考图识别为可能包含真人，无法使用这些图片。请改用明显的动画/插画角色图，或取消角色参考图后重试。",
       "referenceImageRoleMissing": "视频参考图片格式不正确，缺少参考图片标记。已修复，请重新生成视频。",
       "referenceAssetUnavailable": "参考素材不可用，或不属于当前视频账号。请重新上传参考图到当前账号后重试。",
+      "referenceAudioTooLong": "参考音频超过 15.2 秒，请裁剪音频后重新上传再生成。",
       "genTimeout": "视频生成超时",
       "allDone": "所有镜头视频已生成",
       "moderationHint": "疑似真人/敏感内容审核未通过，可在顶栏切换其他视频模型后重试",

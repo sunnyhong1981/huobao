@@ -751,6 +751,7 @@
       "referenceImagePrivacyRejected": "The video model detected a possible real person in the character references and cannot use those images. Use clearly illustrated or animated character references, or retry without character references.",
       "referenceImageRoleMissing": "Video reference image format is invalid because its reference role is missing. The issue is fixed; generate the video again.",
       "referenceAssetUnavailable": "A reference asset is unavailable or not owned by the current video account. Upload the reference again with the current account, then retry.",
+      "referenceAudioTooLong": "The reference audio is longer than 15.2 seconds. Trim it and upload it again before retrying.",
       "genTimeout": "Video generation timed out",
       "allDone": "All shot videos generated",
       "moderationHint": "Looks like a real-person/sensitive content moderation rejection — switch video model in the top bar and retry",

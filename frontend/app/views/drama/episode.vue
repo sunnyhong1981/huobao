@@ -1725,6 +1725,9 @@ function videoFailureMessage(msg) {
   if (/asset reference is unavailable or not owned by the current user/i.test(raw)) {
     return t('episode.vid.referenceAssetUnavailable')
   }
+  if (/audio duration[\s\S]*(?:less than or equal to|must be)[\s\S]*15\.2|audio duration.*15\.2/i.test(raw)) {
+    return t('episode.vid.referenceAudioTooLong')
+  }
   return mapError(raw, { fallback: 'episode.vid.genFailed' })
 }
 
